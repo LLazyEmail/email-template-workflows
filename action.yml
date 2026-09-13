@@ -1,0 +1,7 @@
+name: Render Email Template
+description: Build and render email templates into static HTML
+runs:
+  using: "composite"
+  steps:
+    - run: npm install
+    - run: npm run build-email

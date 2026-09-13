@@ -1,0 +1,12 @@
+name: Use External Workflow
+on: [push, pull_request]
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: your-org/email-template-workflows@v1
+        with:
+          input: ./src/newsletter.md
+          output: ./dist/newsletter.html
