@@ -1,7 +1,32 @@
 name: Render Email Template
 description: Build and render email templates into static HTML
+
+inputs:
+  input:
+    description: Path to source Markdown/AST
+    required: true
+  output:
+    description: Path to save compiled HTML
+    required: true
+
+outputs:
+  html-path:
+    description: Path to the generated HTML file
+    value: ${{ inputs.output }}
+
 runs:
   using: "composite"
   steps:
+    - uses: actions/cache@v3
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
     - run: npm install
-    - run: npm run build-email
+    - run: npm run build-email -- --input ${{ inputs.input }} --output ${{ inputs.output }}
+    - run: npm run validate-email -- --file ${{ inputs.output }}
+    - uses: actions/upload-artifact@v3
+      with:
+        name: rendered-email
+        path: ${{ inputs.output }}
