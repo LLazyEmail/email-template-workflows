@@ -1,24 +1,32 @@
-name: Render Email Template
+name: Action metadata check
 
 on:
+  push:
+    paths:
+      - action.yml
+      - .github/workflows/render-email-template.yml
   pull_request:
-    types: [opened, synchronize]
+    paths:
+      - action.yml
+      - .github/workflows/render-email-template.yml
+  workflow_dispatch:
 
 jobs:
-  render:
+  metadata:
+    name: Validate action.yml shape
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Run external action
-        uses: LLazyEmail/email-template-workflows@v1
-        with:
-          input: ./src/newsletter.md
-          output: ./dist/newsletter.html
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: rendered-email
-          path: ./dist/newsletter.html
+      - name: Require composite action metadata
+        run: |
+          set -euo pipefail
+          test -f action.yml
+          grep -q 'using: "composite"' action.yml
+          grep -q 'shell: bash' action.yml || {
+            echo "Composite run steps must set shell: bash"
+            exit 1
+          }
