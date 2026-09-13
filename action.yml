@@ -24,8 +24,11 @@ runs:
         restore-keys: |
           ${{ runner.os }}-node-
     - run: npm install
+      shell: bash
     - run: npm run build-email -- --input ${{ inputs.input }} --output ${{ inputs.output }}
+      shell: bash
     - run: npm run validate-email -- --file ${{ inputs.output }}
+      shell: bash
     - uses: actions/upload-artifact@v3
       with:
         name: rendered-email
