@@ -8,6 +8,14 @@ inputs:
   output:
     description: Path to save compiled HTML
     required: true
+  upload-artifact:
+    description: Upload the rendered HTML as a workflow artifact
+    required: false
+    default: "true"
+  artifact-name:
+    description: Name of the uploaded artifact
+    required: false
+    default: rendered-email
 
 outputs:
   html-path:
@@ -29,7 +37,8 @@ runs:
       shell: bash
     - run: npm run validate-email -- --file ${{ inputs.output }}
       shell: bash
-    - uses: actions/upload-artifact@v3
+    - if: ${{ inputs.upload-artifact == 'true' }}
+      uses: actions/upload-artifact@v3
       with:
-        name: rendered-email
+        name: ${{ inputs.artifact-name }}
         path: ${{ inputs.output }}
