@@ -8,6 +8,10 @@ inputs:
   output:
     description: Path to save compiled HTML
     required: true
+  node-version:
+    description: Node.js version to install on the runner
+    required: false
+    default: "24"
 
 outputs:
   html-path:
@@ -17,15 +21,16 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/cache@v3
+    - uses: actions/setup-node@v4
       with:
-        path: ~/.npm
-        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-node-
+        node-version: ${{ inputs.node-version }}
+        cache: npm
     - run: npm install
+      shell: bash
     - run: npm run build-email -- --input ${{ inputs.input }} --output ${{ inputs.output }}
+      shell: bash
     - run: npm run validate-email -- --file ${{ inputs.output }}
+      shell: bash
     - uses: actions/upload-artifact@v3
       with:
         name: rendered-email
