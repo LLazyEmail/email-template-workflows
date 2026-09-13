@@ -17,7 +17,7 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       with:
         path: ~/.npm
         key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
@@ -26,7 +26,7 @@ runs:
     - run: npm install
     - run: npm run build-email -- --input ${{ inputs.input }} --output ${{ inputs.output }}
     - run: npm run validate-email -- --file ${{ inputs.output }}
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: rendered-email
         path: ${{ inputs.output }}
