@@ -8,6 +8,10 @@ inputs:
   output:
     description: Path to save compiled HTML
     required: true
+  node-version:
+    description: Node.js version to install on the runner
+    required: false
+    default: "24"
   build-script:
     description: npm script that compiles the email (consumer package.json)
     required: false
@@ -25,12 +29,10 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/cache@v6
+    - uses: actions/setup-node@v4
       with:
-        path: ~/.npm
-        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-node-
+        node-version: ${{ inputs.node-version }}
+        cache: npm
     - run: npm install
       shell: bash
     - run: npm run ${{ inputs.build-script }} -- --input "${{ inputs.input }}" --output "${{ inputs.output }}"
@@ -38,7 +40,7 @@ runs:
     - if: ${{ inputs.validate-script != '' }}
       run: npm run ${{ inputs.validate-script }} -- --file "${{ inputs.output }}"
       shell: bash
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: rendered-email
         path: ${{ inputs.output }}
