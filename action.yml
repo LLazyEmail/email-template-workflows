@@ -12,6 +12,14 @@ inputs:
     description: Node.js version to install on the runner
     required: false
     default: "24"
+  build-script:
+    description: npm script that compiles the email (consumer package.json)
+    required: false
+    default: build-email
+  validate-script:
+    description: npm script that validates compiled HTML. Set empty to skip.
+    required: false
+    default: validate-email
 
 outputs:
   html-path:
@@ -27,9 +35,10 @@ runs:
         cache: npm
     - run: npm install
       shell: bash
-    - run: npm run build-email -- --input ${{ inputs.input }} --output ${{ inputs.output }}
+    - run: npm run ${{ inputs.build-script }} -- --input "${{ inputs.input }}" --output "${{ inputs.output }}"
       shell: bash
-    - run: npm run validate-email -- --file ${{ inputs.output }}
+    - if: ${{ inputs.validate-script != '' }}
+      run: npm run ${{ inputs.validate-script }} -- --file "${{ inputs.output }}"
       shell: bash
     - uses: actions/upload-artifact@v4
       with:
