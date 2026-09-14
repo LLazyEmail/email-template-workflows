@@ -20,6 +20,14 @@ inputs:
     description: npm script that validates compiled HTML. Set empty to skip.
     required: false
     default: validate-email
+  upload-artifact:
+    description: Upload the rendered HTML as a workflow artifact
+    required: false
+    default: "true"
+  artifact-name:
+    description: Name of the uploaded artifact
+    required: false
+    default: rendered-email
 
 outputs:
   html-path:
@@ -40,7 +48,8 @@ runs:
     - if: ${{ inputs.validate-script != '' }}
       run: npm run ${{ inputs.validate-script }} -- --file "${{ inputs.output }}"
       shell: bash
-    - uses: actions/upload-artifact@v4
+    - if: ${{ inputs.upload-artifact == 'true' }}
+      uses: actions/upload-artifact@v4
       with:
-        name: rendered-email
+        name: ${{ inputs.artifact-name }}
         path: ${{ inputs.output }}
