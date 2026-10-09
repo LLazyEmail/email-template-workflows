@@ -5,6 +5,14 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: fixture-render-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   render:
     runs-on: ubuntu-latest
@@ -23,3 +31,41 @@ jobs:
 
       - name: Assert HTML was written
         run: test -s fixtures/consumer/generated/newsletter.html
+
+      - name: Comment on the pull request
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              '### Fixture email rendered',
+              '',
+              'This PR rendered the fixture newsletter.',
+              '',
+              `- Run: ${runUrl}`,
+              `- Artifact: \`fixture-email\``,
+              '',
+              'Open the run → **Artifacts** → download → open `index.html` or `newsletter.html`.',
+            ].join('\n');
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+            });
+            const existing = comments.find((c) => c.user?.type === 'Bot' && c.body?.includes('### Fixture email rendered'));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body,
+              });
+            }
