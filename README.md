@@ -41,14 +41,18 @@ jobs:
 | `extra-args` | no | empty | Appended after `--input` and `--output` |
 | `node-version` | no | `24` | Node.js version |
 | `cache` | no | empty | `npm`, `yarn`, or `pnpm`. Empty skips cache |
-| `upload-artifact` | no | `true` | Upload the HTML |
+| `upload-artifact` | no | `true` | Upload the HTML (with index.html) |
 | `artifact-name` | no | `rendered-email` | Artifact name |
 
 `html-path` is `${working-directory}/${output}` relative to the workspace.
 
+When `upload-artifact` is true, the action writes a simple `index.html` next to the rendered HTML and uploads the directory as an artifact. Download the artifact and open `index.html` for a browsable list of the generated emails.
+
 ## Fixture
 
 `fixtures/consumer` is a package whose `build-email` script accepts `--input`, `--output`, and an optional `--title` extra arg. `.github/workflows/fixture-render.yml` calls `uses: ./` so the action is tested without a release tag.
+
+On pull requests the fixture workflow also posts a comment with a link to the run and instructions for opening the artifact.
 
 ## Consumer contract
 
