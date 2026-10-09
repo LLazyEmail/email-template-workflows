@@ -86,3 +86,27 @@ jobs:
                 body,
               });
             }
+
+  command:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Render via command instead of --input/--output
+        uses: ./
+        with:
+          working-directory: fixtures/consumer
+          command: npm run render-all
+          artifact-directory: generated
+          upload-artifact: true
+          artifact-name: fixture-command
+
+      - name: Assert command-mode HTML
+        run: |
+          set -euo pipefail
+          test -s fixtures/consumer/generated/newsletter.html
+          test -s fixtures/consumer/generated/welcome.html
+          test -s fixtures/consumer/generated/index.html
+          test -s fixtures/consumer/generated/rendered.txt
+          count=$(grep -c '<li>' fixtures/consumer/generated/index.html)
+          test "$count" -ge 2
