@@ -1,0 +1,8 @@
+{
+  "name": "email-template-fixture",
+  "private": true,
+  "scripts": {
+    "build-email": "node build-email.js",
+    "validate-email": "node validate-email.js"
+  }
+}
