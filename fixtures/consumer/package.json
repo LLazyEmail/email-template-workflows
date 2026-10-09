@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "build-email": "node build-email.js",
+    "render-all": "node render-all.js",
     "validate-email": "node validate-email.js"
   }
 }
