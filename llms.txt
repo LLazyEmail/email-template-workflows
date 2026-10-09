@@ -18,7 +18,7 @@ Pin to the floating major tag `@v1`. It tracks the latest `v1.x` release. Minima
 ## Pick a render mode
 
 - Script mode: set `input` + `output`, or a multiline `templates` (`input:output` per line). The Action runs `npm run <build-script> -- --input X --output Y [extra-args]` for each pair. Your script must accept `--input` and `--output`.
-- Command mode: set `command` and `artifact-directory`. The Action runs the shell command as-is (no flags appended) and indexes the top-level `*.html` files in `artifact-directory`. `command` overrides `templates`, `input`, `output`, `build-script`, `validate-script`, and `extra-args`.
+- Command mode: set `command` and `artifact-directory`. The Action runs the shell command as-is (no flags appended) and indexes the `*.html` files (any depth) in `artifact-directory`. `command` overrides `templates`, `input`, `output`, `build-script`, `validate-script`, and `extra-args`.
 
 ## Docs
 
@@ -38,6 +38,7 @@ Pin to the floating major tag `@v1`. It tracks the latest `v1.x` release. Minima
 ## Optional
 
 - [Repository metadata suggestions](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/docs/REPO-METADATA.md): description, topics, Marketplace branding
+- [Changelog](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/CHANGELOG.md): what changed in each release
 - [Issues](https://github.com/LLazyEmail/email-template-workflows/issues): known limitations, for example #21 on Lit scripts and `--input`/`--output`
 - [Marketplace listing](https://github.com/marketplace/actions/render-email-template)
 - [License (MIT)](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/LICENSE)

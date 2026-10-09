@@ -14,7 +14,7 @@ https://github.com/marketplace/actions/render-email-template
 
 `github-action` `github-actions` `email` `email-template` `html-email` `mjml` `lit` `markdown` `ci` `preview` `composite-action` `workflow` `pull-request`
 
-## Marketplace branding (optional, in `action.yml`)
+## Marketplace branding (already included in the new `action.yml`)
 
 ```yaml
 branding:

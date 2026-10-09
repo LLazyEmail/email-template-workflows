@@ -1,6 +1,10 @@
 name: Render Email Template
 description: Build and render one or more email templates into static HTML
 
+branding:
+  icon: mail
+  color: blue
+
 inputs:
   input:
     description: Path to a single source Markdown/AST, relative to working-directory. Ignored when templates or command is set.
@@ -21,7 +25,7 @@ inputs:
     default: ""
   command:
     description: |
-      Shell command run after npm install, instead of the build-script loop.
+      Shell command run after install, instead of the build-script loop.
       Use this for a catalog engine, for example `npx generate-template --all --out=generated`
       or `npm run sandbox`. Set artifact-directory to the folder that command writes.
     required: false
@@ -34,12 +38,16 @@ inputs:
     description: Directory that contains package.json. Default is the generated output folder.
     required: false
     default: generated
+  install-command:
+    description: Command that installs dependencies in working-directory, for example `npm ci`. The cache input only controls the setup-node cache.
+    required: false
+    default: npm install
   build-script:
     description: npm script that compiles the email (consumer package.json). Ignored when command is set.
     required: false
     default: build-email
   validate-script:
-    description: npm script that validates compiled HTML. Set empty to skip. Ignored when command is set.
+    description: npm script that validates compiled HTML. Set empty to skip. If the script is not defined in package.json, validation is skipped with a warning. Ignored when command is set.
     required: false
     default: validate-email
   extra-args:
@@ -62,8 +70,12 @@ inputs:
     description: Directory to index and upload, relative to working-directory. Empty uses the directory of the rendered HTML. Required in practice when command is set.
     required: false
     default: ""
+  retention-days:
+    description: Days to keep the uploaded artifact
+    required: false
+    default: "14"
   pr-comment:
-    description: On pull_request, post or update a comment listing the rendered files. The caller job needs pull-requests write.
+    description: On pull_request, post or update a comment listing the rendered files. The caller job needs pull-requests write. Skipped for pull requests from forks, which only get a read-only token.
     required: false
     default: "true"
 
@@ -74,6 +86,12 @@ outputs:
   html-count:
     description: Number of HTML files rendered
     value: ${{ steps.render.outputs.html-count }}
+  artifact-dir:
+    description: Directory that was indexed and uploaded, relative to the workspace
+    value: ${{ steps.render.outputs.artifact-dir }}
+  artifact-url:
+    description: URL of the uploaded artifact. Empty when upload-artifact is not true.
+    value: ${{ steps.upload.outputs.artifact-url }}
 
 runs:
   using: "composite"
@@ -83,14 +101,17 @@ runs:
       with:
         node-version: ${{ inputs.node-version }}
         cache: ${{ inputs.cache }}
-        cache-dependency-path: ${{ inputs.working-directory }}/**/package-lock.json
+        cache-dependency-path: ${{ inputs.working-directory }}/**/${{ inputs.cache == 'yarn' && 'yarn.lock' || inputs.cache == 'pnpm' && 'pnpm-lock.yaml' || 'package-lock.json' }}
     - if: ${{ inputs.cache == '' }}
       uses: actions/setup-node@v7
       with:
         node-version: ${{ inputs.node-version }}
-    - run: npm install
+    - name: Install dependencies
       shell: bash
       working-directory: ${{ inputs.working-directory }}
+      env:
+        INSTALL_COMMAND: ${{ inputs.install-command }}
+      run: bash -c "$INSTALL_COMMAND"
     - name: Render templates
       id: render
       shell: bash
@@ -107,6 +128,15 @@ runs:
         WORKDIR: ${{ inputs.working-directory }}
       run: |
         set -euo pipefail
+        has_script() {
+          node -e 'const s=(require(require("path").resolve("package.json")).scripts)||{};process.exit(Object.prototype.hasOwnProperty.call(s,process.argv[1])?0:1)' "$1"
+        }
+        rel() {
+          node -e 'console.log(require("path").relative(process.argv[1],process.argv[2]))' "$1" "$2"
+        }
+        esc() {
+          sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g'
+        }
         rendered=()
         if [ -n "$COMMAND" ]; then
           echo "running command: $COMMAND"
@@ -119,7 +149,7 @@ runs:
           mkdir -p "$outdir"
           while IFS= read -r f; do
             rendered+=("$f")
-          done < <(find "$outdir" -maxdepth 1 -name '*.html' ! -name 'index.html' | sort)
+          done < <(find "$outdir" -name '*.html' ! -name 'index.html' | sort)
         else
           mapfile -t pairs < <(
             if [ -n "$TEMPLATES" ]; then
@@ -141,7 +171,11 @@ runs:
             echo "rendering $input -> $output"
             npm run "$BUILD_SCRIPT" -- --input "$input" --output "$output" $EXTRA_ARGS
             if [ -n "$VALIDATE_SCRIPT" ]; then
-              npm run "$VALIDATE_SCRIPT" -- --file "$output"
+              if has_script "$VALIDATE_SCRIPT"; then
+                npm run "$VALIDATE_SCRIPT" -- --file "$output"
+              else
+                echo "::warning::validate-script '$VALIDATE_SCRIPT' is not defined in package.json; skipping validation"
+              fi
             fi
             test -s "$output"
             rendered+=("$output")
@@ -162,7 +196,7 @@ runs:
           echo '<h1>Rendered emails</h1>'
           echo '<ul>'
           for f in "${rendered[@]}"; do
-            name=$(basename "$f")
+            name=$(rel "$outdir" "$f" | esc)
             echo "<li><a href=\"$name\">$name</a></li>"
           done
           echo '</ul></body></html>'
@@ -173,18 +207,21 @@ runs:
         echo "artifact-dir=$WORKDIR/$outdir" >> "$GITHUB_OUTPUT"
         echo "rendered ${#rendered[@]} template(s) into $outdir"
     - if: ${{ inputs.upload-artifact == 'true' }}
+      id: upload
       uses: actions/upload-artifact@v7
       with:
         name: ${{ inputs.artifact-name }}
         path: ${{ steps.render.outputs.artifact-dir }}
         if-no-files-found: error
-        retention-days: 14
+        retention-days: ${{ inputs.retention-days }}
     - name: Comment on the pull request
-      if: ${{ github.event_name == 'pull_request' && inputs.pr-comment == 'true' }}
+      if: ${{ github.event_name == 'pull_request' && inputs.pr-comment == 'true' && github.event.pull_request.head.repo.full_name == github.repository }}
       uses: actions/github-script@v9
       env:
         ARTIFACT_DIR: ${{ steps.render.outputs.artifact-dir }}
         ARTIFACT_NAME: ${{ inputs.artifact-name }}
+        ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        UPLOAD_ARTIFACT: ${{ inputs.upload-artifact }}
       with:
         script: |
           const fs = require('fs');
@@ -197,7 +234,13 @@ runs:
             .filter(Boolean)
             .map((line) => `- \`${line}\``)
             .join('\n');
+          const uploaded = process.env.UPLOAD_ARTIFACT === 'true';
+          const artifactLine = process.env.ARTIFACT_URL
+            ? `- Artifact: [\`${process.env.ARTIFACT_NAME}\`](${process.env.ARTIFACT_URL})`
+            : `- Artifact: \`${process.env.ARTIFACT_NAME}\``;
+          const hidden = '<!-- email-template-workflows -->';
           const body = [
+            hidden,
             '### Rendered emails',
             '',
             'This PR rendered email templates.',
@@ -205,23 +248,25 @@ runs:
             list,
             '',
             `- Run: ${runUrl}`,
-            `- Artifact: \`${process.env.ARTIFACT_NAME}\``,
-            '',
-            'Open the run → **Artifacts** → download → open `index.html`.',
+            ...(uploaded ? [artifactLine, '', 'Open the run → **Artifacts** → download → open `index.html`.'] : []),
           ].join('\n');
-          const markers = [
+          const legacyMarkers = [
             '### Rendered emails',
             '### Sandbox HTML',
             '### Fixture emails rendered',
             '### Fixture email rendered',
             '### Emails rendered',
           ];
-          const { data: comments } = await github.rest.issues.listComments({
+          const comments = await github.paginate(github.rest.issues.listComments, {
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: context.payload.pull_request.number,
+            per_page: 100,
           });
-          const existing = comments.find((c) => c.user?.type === 'Bot' && markers.some((marker) => c.body?.includes(marker)));
+          const isBot = (c) => c.user?.type === 'Bot';
+          const existing =
+            comments.find((c) => isBot(c) && c.body?.includes(hidden)) ||
+            comments.find((c) => isBot(c) && legacyMarkers.some((marker) => c.body?.includes(marker)));
           if (existing) {
             await github.rest.issues.updateComment({
               owner: context.repo.owner,
