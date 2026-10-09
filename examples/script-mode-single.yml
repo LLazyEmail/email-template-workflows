@@ -1,0 +1,25 @@
+# Script mode, one template.
+# Requires an npm script (build-email by default) that accepts --input and --output.
+name: Render email
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write   # needed because pr-comment defaults to true
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: LLazyEmail/email-template-workflows@v1
+        with:
+          working-directory: .            # folder that contains package.json
+          input: src/newsletter.md        # relative to working-directory
+          output: generated/newsletter.html
+          validate-script: ""             # skip if you have no validate-email script
+          artifact-name: rendered-email

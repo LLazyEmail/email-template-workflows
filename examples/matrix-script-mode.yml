@@ -1,0 +1,50 @@
+# Script mode with a job matrix: one job per template, separate pass/fail each.
+# Two rules for matrices:
+#   1. pr-comment: false  (every job would overwrite the same PR comment)
+#   2. a unique artifact-name per job
+# A trimmed version of the real consumer workflow in LLazyEmail/_playing_with_lit.
+name: Render email matrix
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    name: Render ${{ matrix.template }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read            # only if .npmrc installs private GitHub Packages
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # read by .npmrc for private packages
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - template: welcome
+            script: render:welcome
+            input: src/scripts/welcome/render.ts
+            output: generated/welcome-email.html
+          - template: invoice
+            script: render:invoice
+            input: src/scripts/invoice/render.ts
+            output: generated/invoice-email.html
+    steps:
+      - uses: actions/checkout@v7
+      - uses: LLazyEmail/email-template-workflows@v1
+        with:
+          working-directory: .
+          input: ${{ matrix.input }}
+          output: ${{ matrix.output }}
+          build-script: ${{ matrix.script }}
+          validate-script: ""
+          artifact-directory: generated
+          artifact-name: action-rendered-${{ matrix.template }}
+          pr-comment: false

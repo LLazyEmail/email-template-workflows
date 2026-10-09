@@ -1,0 +1,26 @@
+# Command mode, for a catalog engine or any CLI that renders a whole folder.
+# The Action runs `command` as-is (no --input/--output appended) after npm install,
+# then indexes the top-level *.html files in artifact-directory.
+# artifact-directory is REQUIRED in this mode.
+name: Render email catalog
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: LLazyEmail/email-template-workflows@v1
+        with:
+          working-directory: .
+          command: npx generate-template --all --out=generated
+          artifact-directory: generated
+          artifact-name: rendered-email

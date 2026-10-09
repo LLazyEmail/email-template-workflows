@@ -1,0 +1,29 @@
+# Script mode, several templates in one job.
+# One "input:output" pair per line. Lines starting with # and blank lines are skipped.
+# Paths are relative to working-directory. Paths must not contain a colon.
+name: Render emails
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: LLazyEmail/email-template-workflows@v1
+        with:
+          working-directory: .
+          build-script: build-email
+          validate-script: ""
+          templates: |
+            src/newsletter.md:generated/newsletter.html
+            src/welcome.md:generated/welcome.html
+          artifact-directory: generated
+          artifact-name: rendered-email

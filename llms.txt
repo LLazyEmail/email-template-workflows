@@ -1,0 +1,43 @@
+# email-template-workflows
+
+> A reusable GitHub composite Action (`LLazyEmail/email-template-workflows@v1`) that installs a Node.js consumer package, renders email templates to static HTML, uploads the HTML directory as a workflow artifact with a browsable `index.html`, and on pull requests posts or updates a single "Rendered emails" comment.
+
+Use this Action when a repository builds HTML emails with an npm script or a CLI (MJML, Lit, Markdown-to-email, a template catalog) and you want CI to render them, publish them for review, and link them from the pull request. It is not an email sender, a linter, or a template library. It runs your build and publishes the result.
+
+Pin to the floating major tag `@v1`. It tracks the latest `v1.x` release. Minimal call:
+
+```yaml
+- uses: actions/checkout@v7
+- uses: LLazyEmail/email-template-workflows@v1
+  with:
+    working-directory: .
+    command: npx generate-template --all --out=generated
+    artifact-directory: generated
+```
+
+## Pick a render mode
+
+- Script mode: set `input` + `output`, or a multiline `templates` (`input:output` per line). The Action runs `npm run <build-script> -- --input X --output Y [extra-args]` for each pair. Your script must accept `--input` and `--output`.
+- Command mode: set `command` and `artifact-directory`. The Action runs the shell command as-is (no flags appended) and indexes the top-level `*.html` files in `artifact-directory`. `command` overrides `templates`, `input`, `output`, `build-script`, `validate-script`, and `extra-args`.
+
+## Docs
+
+- [README](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/README.md): overview, usage, full inputs table, outputs, behavior notes
+- [AGENTS.md](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/AGENTS.md): decision rules, input precedence, gotchas, and a checklist for agents wiring this Action into a repository
+- [action.yml](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/action.yml): the source of truth for inputs, outputs, defaults, and implementation
+
+## Examples
+
+- [Real consumer: matrix of 15 templates (script mode)](https://raw.githubusercontent.com/LLazyEmail/_playing_with_lit/refs/heads/main/.github/workflows/render-email-action.yml): used in `LLazyEmail/_playing_with_lit`
+- [Real-world walkthrough](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/docs/real-world-example.md): explains the consumer workflow above line by line
+- [Single template](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/examples/script-mode-single.yml)
+- [Several templates via `templates:`](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/examples/script-mode-templates.yml)
+- [Catalog engine via `command:`](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/examples/command-mode.yml)
+- [Matrix, one job per template](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/examples/matrix-script-mode.yml)
+
+## Optional
+
+- [Repository metadata suggestions](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/docs/REPO-METADATA.md): description, topics, Marketplace branding
+- [Issues](https://github.com/LLazyEmail/email-template-workflows/issues): known limitations, for example #21 on Lit scripts and `--input`/`--output`
+- [Marketplace listing](https://github.com/marketplace/actions/render-email-template)
+- [License (MIT)](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/LICENSE)
