@@ -47,7 +47,7 @@ outputs:
     value: ${{ inputs.working-directory }}/${{ inputs.output }}
 
 runs:
-  using: composite
+  using: "composite"
   steps:
     - if: ${{ inputs.cache != '' }}
       uses: actions/setup-node@v7
