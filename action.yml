@@ -3,11 +3,11 @@ description: Build and render one or more email templates into static HTML
 
 inputs:
   input:
-    description: Path to a single source Markdown/AST, relative to working-directory. Ignored when templates is set.
+    description: Path to a single source Markdown/AST, relative to working-directory. Ignored when templates or command is set.
     required: false
     default: ""
   output:
-    description: Path to save a single compiled HTML file, relative to working-directory. Ignored when templates is set.
+    description: Path to save a single compiled HTML file, relative to working-directory. Ignored when templates or command is set.
     required: false
     default: ""
   templates:
@@ -16,7 +16,14 @@ inputs:
       Example:
         src/welcome.md:generated/welcome.html
         src/invoice.md:generated/invoice.html
-      When set, input and output are ignored.
+      When set, input and output are ignored. Ignored when command is set.
+    required: false
+    default: ""
+  command:
+    description: |
+      Shell command run after npm install, instead of the build-script loop.
+      Use this for a catalog engine, for example `npx generate-template --all --out=generated`
+      or `npm run sandbox`. Set artifact-directory to the folder that command writes.
     required: false
     default: ""
   node-version:
@@ -28,15 +35,15 @@ inputs:
     required: false
     default: generated
   build-script:
-    description: npm script that compiles the email (consumer package.json)
+    description: npm script that compiles the email (consumer package.json). Ignored when command is set.
     required: false
     default: build-email
   validate-script:
-    description: npm script that validates compiled HTML. Set empty to skip.
+    description: npm script that validates compiled HTML. Set empty to skip. Ignored when command is set.
     required: false
     default: validate-email
   extra-args:
-    description: Extra arguments appended after --input and --output
+    description: Extra arguments appended after --input and --output. Ignored when command is set.
     required: false
     default: ""
   cache:
@@ -52,7 +59,7 @@ inputs:
     required: false
     default: rendered-email
   artifact-directory:
-    description: Directory to index and upload, relative to working-directory. Empty uses the directory of the rendered HTML.
+    description: Directory to index and upload, relative to working-directory. Empty uses the directory of the rendered HTML. Required in practice when command is set.
     required: false
     default: ""
 
@@ -92,43 +99,58 @@ runs:
         VALIDATE_SCRIPT: ${{ inputs.validate-script }}
         EXTRA_ARGS: ${{ inputs.extra-args }}
         ARTIFACT_DIRECTORY: ${{ inputs.artifact-directory }}
+        COMMAND: ${{ inputs.command }}
         WORKDIR: ${{ inputs.working-directory }}
       run: |
         set -euo pipefail
-        mapfile -t pairs < <(
-          if [ -n "$TEMPLATES" ]; then
-            printf '%s\n' "$TEMPLATES"
-          else
-            printf '%s:%s\n' "$SINGLE_INPUT" "$SINGLE_OUTPUT"
-          fi
-        )
         rendered=()
-        for raw in "${pairs[@]}"; do
-          line=$(printf '%s' "$raw" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-          [ -z "$line" ] && continue
-          case "$line" in \#*) continue ;; esac
-          input=${line%%:*}
-          output=${line#*:}
-          if [ -z "$input" ] || [ -z "$output" ] || [ "$input" = "$output" ]; then
-            echo "invalid template line (expected input:output): $line"
+        if [ -n "$COMMAND" ]; then
+          echo "running command: $COMMAND"
+          bash -lc "$COMMAND"
+          if [ -z "$ARTIFACT_DIRECTORY" ]; then
+            echo "command mode requires artifact-directory"
             exit 1
           fi
-          echo "rendering $input -> $output"
-          npm run "$BUILD_SCRIPT" -- --input "$input" --output "$output" $EXTRA_ARGS
-          if [ -n "$VALIDATE_SCRIPT" ]; then
-            npm run "$VALIDATE_SCRIPT" -- --file "$output"
-          fi
-          test -s "$output"
-          rendered+=("$output")
-        done
-        if [ "${#rendered[@]}" -eq 0 ]; then
-          echo "No templates rendered. Set templates, or both input and output."
-          exit 1
-        fi
-        if [ -n "$ARTIFACT_DIRECTORY" ]; then
           outdir="$ARTIFACT_DIRECTORY"
+          mkdir -p "$outdir"
+          while IFS= read -r f; do
+            rendered+=("$f")
+          done < <(find "$outdir" -maxdepth 1 -name '*.html' ! -name 'index.html' | sort)
         else
-          outdir=$(dirname "${rendered[0]}")
+          mapfile -t pairs < <(
+            if [ -n "$TEMPLATES" ]; then
+              printf '%s\n' "$TEMPLATES"
+            else
+              printf '%s:%s\n' "$SINGLE_INPUT" "$SINGLE_OUTPUT"
+            fi
+          )
+          for raw in "${pairs[@]}"; do
+            line=$(printf '%s' "$raw" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            [ -z "$line" ] && continue
+            case "$line" in \#*) continue ;; esac
+            input=${line%%:*}
+            output=${line#*:}
+            if [ -z "$input" ] || [ -z "$output" ] || [ "$input" = "$output" ]; then
+              echo "invalid template line (expected input:output): $line"
+              exit 1
+            fi
+            echo "rendering $input -> $output"
+            npm run "$BUILD_SCRIPT" -- --input "$input" --output "$output" $EXTRA_ARGS
+            if [ -n "$VALIDATE_SCRIPT" ]; then
+              npm run "$VALIDATE_SCRIPT" -- --file "$output"
+            fi
+            test -s "$output"
+            rendered+=("$output")
+          done
+          if [ -n "$ARTIFACT_DIRECTORY" ]; then
+            outdir="$ARTIFACT_DIRECTORY"
+          else
+            outdir=$(dirname "${rendered[0]}")
+          fi
+        fi
+        if [ "${#rendered[@]}" -eq 0 ]; then
+          echo "No templates rendered. Set command plus artifact-directory, templates, or both input and output."
+          exit 1
         fi
         mkdir -p "$outdir"
         {
