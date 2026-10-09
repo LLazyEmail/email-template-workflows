@@ -1,0 +1,25 @@
+name: Fixture render
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Render fixture with the local action
+        uses: ./
+        with:
+          working-directory: fixtures/consumer
+          input: src/newsletter.md
+          output: generated/newsletter.html
+          extra-args: --title Fixture
+          upload-artifact: true
+          artifact-name: fixture-email
+
+      - name: Assert HTML was written
+        run: test -s fixtures/consumer/generated/newsletter.html

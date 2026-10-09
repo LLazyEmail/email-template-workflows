@@ -1,8 +1,8 @@
 # email-template-workflows
 
-Reusable GitHub Action that installs a consumer repo's npm dependencies, runs an email render script, optionally validates the HTML, and can upload the result as an artifact.
+Reusable GitHub Action that installs a consumer package, runs an email render script, optionally validates the HTML, and can upload the result as an artifact.
 
-This is **not** a drop-in copy of `_playing_with_lit` CI. That project uses `npm run render:template` / `render:hackernoon`. This action expects the **consumer** to expose npm scripts (defaults below).
+This is not a drop-in copy of `_playing_with_lit` CI. That mismatch is tracked in https://github.com/LLazyEmail/email-template-workflows/issues/21. Lit scripts still do not accept `--input` / `--output`.
 
 ## Usage
 
@@ -17,52 +17,41 @@ jobs:
   render:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: LLazyEmail/email-template-workflows@v1
         with:
-          input: ./src/newsletter.md
-          output: ./dist/newsletter.html
+          working-directory: generated
+          input: ../src/newsletter.md
+          output: newsletter.html
+          extra-args: ""
+          cache: npm
 ```
 
-Pin a release tag (`@v1.0.1`) or a moving major (`@v1`) after that major tag is kept up to date. Do not pin `@main` in production workflows.
+`@v1` still points at the September 2026 release. Do not pin it until `v1` is moved. Use the branch or a new tag after the fixture workflow is green.
 
 ## Inputs
 
 | Input | Required | Default | Meaning |
 | --- | --- | --- | --- |
-| `input` | yes | — | Path passed to the build script |
-| `output` | yes | — | Path the build script should write |
-| `build-script` | no | `build-email` | npm script name in the **consumer** `package.json` |
-| `validate-script` | no | `validate-email` | npm script to run after build; empty skips |
-| `node-version` | no | `24` | Installed when the setup-node PR is merged |
-| `upload-artifact` | no | `true` | Set `false` if the caller uploads instead |
+| `input` | yes | — | Source path, relative to `working-directory` |
+| `output` | yes | — | HTML path, relative to `working-directory` |
+| `working-directory` | no | `generated` | Directory that contains `package.json` |
+| `build-script` | no | `build-email` | npm script in that package |
+| `validate-script` | no | `validate-email` | Empty skips validation |
+| `extra-args` | no | empty | Appended after `--input` and `--output` |
+| `node-version` | no | `24` | Node.js version |
+| `cache` | no | empty | `npm`, `yarn`, or `pnpm`. Empty skips cache |
+| `upload-artifact` | no | `true` | Upload the HTML |
+| `artifact-name` | no | `rendered-email` | Artifact name |
 
-Exact input names depend on which follow-up PRs you merge. Until those land, only `input` and `output` exist and the action always runs `npm run build-email` / `validate-email`.
+`html-path` is `${working-directory}/${output}` relative to the workspace.
+
+## Fixture
+
+`fixtures/consumer` is a package whose `build-email` script accepts `--input`, `--output`, and an optional `--title` extra arg. `.github/workflows/fixture-render.yml` calls `uses: ./` so the action is tested without a release tag.
 
 ## Consumer contract
 
-The action runs in the consumer checkout. You must provide:
+The action runs `npm install` and `npm run <build-script> -- --input ... --output ... <extra-args>` inside `working-directory`. The default directory is `generated`, which is where this project writes HTML. If `package.json` lives at the repo root, set `working-directory: .`.
 
-- `package.json` with the configured scripts
-- lockfile if you want npm cache hits
-- the source file at `input`
-
-Example `_playing_with_lit` mapping after configurable scripts land:
-
-```yaml
-- uses: LLazyEmail/email-template-workflows@v1
-  with:
-    input: .
-    output: generated/nomoretogo-email.html
-    build-script: render:template
-    validate-script: ""
-    upload-artifact: "true"
-```
-
-`render:template` in that repo does not take `--input` / `--output` today. Either add those flags to the scripts or change this action later to run `npm run <script>` with no extra args.
-
-## Versioning
-
-- Releases: https://github.com/LLazyEmail/email-template-workflows/releases
-- Keep a moving `v1` tag on the latest compatible 1.x commit if you advertise `@v1`.
-- Breaking input/script changes belong in `v2`.
+`_playing_with_lit` mapping is blocked on issue 21.
