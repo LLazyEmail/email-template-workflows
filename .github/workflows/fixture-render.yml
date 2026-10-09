@@ -40,53 +40,6 @@ jobs:
           count=$(grep -c '<li>' fixtures/consumer/generated/index.html)
           test "$count" -ge 2
 
-      - name: Comment on the pull request
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v9
-        with:
-          script: |
-            const fs = require('fs');
-            const runUrl = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const list = fs.readFileSync('fixtures/consumer/generated/rendered.txt', 'utf8')
-              .split('\n')
-              .map((line) => line.trim())
-              .filter(Boolean)
-              .map((line) => `- \`${line}\``)
-              .join('\n');
-            const body = [
-              '### Fixture emails rendered',
-              '',
-              'This PR rendered multiple fixture templates.',
-              '',
-              list,
-              '',
-              `- Run: ${runUrl}`,
-              '- Artifact: `fixture-email`',
-              '',
-              'Open the run → **Artifacts** → download → open `index.html`.',
-            ].join('\n');
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
-            });
-            const existing = comments.find((c) => c.user?.type === 'Bot' && (c.body?.includes('### Fixture emails rendered') || c.body?.includes('### Fixture email rendered')));
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.payload.pull_request.number,
-                body,
-              });
-            }
-
   command:
     runs-on: ubuntu-latest
     steps:
@@ -100,6 +53,7 @@ jobs:
           artifact-directory: generated
           upload-artifact: true
           artifact-name: fixture-command
+          pr-comment: false
 
       - name: Assert command-mode HTML
         run: |
