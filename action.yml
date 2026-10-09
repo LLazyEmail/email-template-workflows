@@ -1,13 +1,24 @@
 name: Render Email Template
-description: Build and render email templates into static HTML
+description: Build and render one or more email templates into static HTML
 
 inputs:
   input:
-    description: Path to source Markdown/AST, relative to working-directory
-    required: true
+    description: Path to a single source Markdown/AST, relative to working-directory. Ignored when templates is set.
+    required: false
+    default: ""
   output:
-    description: Path to save compiled HTML, relative to working-directory
-    required: true
+    description: Path to save a single compiled HTML file, relative to working-directory. Ignored when templates is set.
+    required: false
+    default: ""
+  templates:
+    description: |
+      One template per line, as input:output, both relative to working-directory.
+      Example:
+        src/welcome.md:generated/welcome.html
+        src/invoice.md:generated/invoice.html
+      When set, input and output are ignored.
+    required: false
+    default: ""
   node-version:
     description: Node.js version to install on the runner
     required: false
@@ -33,18 +44,25 @@ inputs:
     required: false
     default: ""
   upload-artifact:
-    description: Upload the rendered HTML as a workflow artifact
+    description: Upload the rendered HTML (plus index.html) as a workflow artifact
     required: false
     default: "true"
   artifact-name:
     description: Name of the uploaded artifact
     required: false
     default: rendered-email
+  artifact-directory:
+    description: Directory to index and upload, relative to working-directory. Empty uses the directory of the rendered HTML.
+    required: false
+    default: ""
 
 outputs:
   html-path:
-    description: Path to the generated HTML file, relative to the workspace
-    value: ${{ inputs.working-directory }}/${{ inputs.output }}
+    description: Path to the first generated HTML file, relative to the workspace
+    value: ${{ steps.render.outputs.html-path }}
+  html-count:
+    description: Number of HTML files rendered
+    value: ${{ steps.render.outputs.html-count }}
 
 runs:
   using: "composite"
@@ -62,40 +80,76 @@ runs:
     - run: npm install
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-    - run: npm run ${{ inputs.build-script }} -- --input "${{ inputs.input }}" --output "${{ inputs.output }}" ${{ inputs.extra-args }}
+    - name: Render templates
+      id: render
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-    - if: ${{ inputs.validate-script != '' }}
-      run: npm run ${{ inputs.validate-script }} -- --file "${{ inputs.output }}"
-      shell: bash
-      working-directory: ${{ inputs.working-directory }}
-    - name: Write index.html for browsable artifact
-      if: ${{ inputs.upload-artifact == 'true' }}
-      id: index
-      shell: bash
-      working-directory: ${{ inputs.working-directory }}
+      env:
+        TEMPLATES: ${{ inputs.templates }}
+        SINGLE_INPUT: ${{ inputs.input }}
+        SINGLE_OUTPUT: ${{ inputs.output }}
+        BUILD_SCRIPT: ${{ inputs.build-script }}
+        VALIDATE_SCRIPT: ${{ inputs.validate-script }}
+        EXTRA_ARGS: ${{ inputs.extra-args }}
+        ARTIFACT_DIRECTORY: ${{ inputs.artifact-directory }}
+        WORKDIR: ${{ inputs.working-directory }}
       run: |
         set -euo pipefail
-        outdir=$(dirname "${{ inputs.output }}")
+        mapfile -t pairs < <(
+          if [ -n "$TEMPLATES" ]; then
+            printf '%s\n' "$TEMPLATES"
+          else
+            printf '%s:%s\n' "$SINGLE_INPUT" "$SINGLE_OUTPUT"
+          fi
+        )
+        rendered=()
+        for raw in "${pairs[@]}"; do
+          line=$(printf '%s' "$raw" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          [ -z "$line" ] && continue
+          case "$line" in \#*) continue ;; esac
+          input=${line%%:*}
+          output=${line#*:}
+          if [ -z "$input" ] || [ -z "$output" ] || [ "$input" = "$output" ]; then
+            echo "invalid template line (expected input:output): $line"
+            exit 1
+          fi
+          echo "rendering $input -> $output"
+          npm run "$BUILD_SCRIPT" -- --input "$input" --output "$output" $EXTRA_ARGS
+          if [ -n "$VALIDATE_SCRIPT" ]; then
+            npm run "$VALIDATE_SCRIPT" -- --file "$output"
+          fi
+          test -s "$output"
+          rendered+=("$output")
+        done
+        if [ "${#rendered[@]}" -eq 0 ]; then
+          echo "No templates rendered. Set templates, or both input and output."
+          exit 1
+        fi
+        if [ -n "$ARTIFACT_DIRECTORY" ]; then
+          outdir="$ARTIFACT_DIRECTORY"
+        else
+          outdir=$(dirname "${rendered[0]}")
+        fi
         mkdir -p "$outdir"
         {
           echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Rendered emails</title></head><body>'
           echo '<h1>Rendered emails</h1>'
           echo '<ul>'
-          for f in "$outdir"/*.html; do
-            [ -e "$f" ] || continue
+          for f in "${rendered[@]}"; do
             name=$(basename "$f")
-            if [ "$name" = index.html ]; then continue; fi
             echo "<li><a href=\"$name\">$name</a></li>"
           done
           echo '</ul></body></html>'
         } > "$outdir/index.html"
-        echo "artifact-dir=${{ inputs.working-directory }}/$outdir" >> $GITHUB_OUTPUT
-        echo "Wrote index.html in $outdir"
+        printf '%s\n' "${rendered[@]}" > "$outdir/rendered.txt"
+        echo "html-count=${#rendered[@]}" >> "$GITHUB_OUTPUT"
+        echo "html-path=$WORKDIR/${rendered[0]}" >> "$GITHUB_OUTPUT"
+        echo "artifact-dir=$WORKDIR/$outdir" >> "$GITHUB_OUTPUT"
+        echo "rendered ${#rendered[@]} template(s) into $outdir"
     - if: ${{ inputs.upload-artifact == 'true' }}
       uses: actions/upload-artifact@v7
       with:
         name: ${{ inputs.artifact-name }}
-        path: ${{ steps.index.outputs.artifact-dir }}
+        path: ${{ steps.render.outputs.artifact-dir }}
         if-no-files-found: error
         retention-days: 14
