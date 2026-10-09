@@ -2,6 +2,8 @@
 
 Reusable GitHub Action that installs a consumer package, runs an email render script for one or more templates, optionally validates the HTML, and uploads a browsable artifact.
 
+Pin `LLazyEmail/email-template-workflows@v1`. That floating major tag tracks the latest `v1.x` release. Immutable patch tags (`v1.0.1`, `v1.1.1`, `v1.2.0`) stay where they were published.
+
 This is not a drop-in copy of `_playing_with_lit` CI. That mismatch is tracked in https://github.com/LLazyEmail/email-template-workflows/issues/21. Lit scripts still do not accept `--input` / `--output`.
 
 ## Usage
@@ -30,7 +32,7 @@ Several templates (one `input:output` pair per line):
     artifact-name: rendered-email
 ```
 
-`@v1` still points at the September 2026 release. Do not pin it until `v1` is moved. Use the branch or a new tag after the fixture workflow is green.
+The artifact is a directory, not a single file. Download it and open `index.html`.
 
 ## Inputs
 
@@ -49,7 +51,7 @@ Several templates (one `input:output` pair per line):
 | `artifact-name` | no | `rendered-email` | Artifact name |
 | `artifact-directory` | no | empty | Directory to index and upload. Empty uses the directory of the first output. |
 
-Set `templates`, or both `input` and `output`. The action writes `index.html` and `rendered.txt` into the artifact directory and uploads that directory. Download it and open `index.html`.
+Set `templates`, or both `input` and `output`. The action writes `index.html` and `rendered.txt` into the artifact directory and uploads that directory.
 
 Outputs: `html-path` (first file) and `html-count`.
 
