@@ -1,6 +1,6 @@
 # email-template-workflows
 
-Reusable GitHub Action that installs a consumer package, renders email HTML, and uploads a browsable artifact.
+Reusable GitHub Action that installs a consumer package, renders email HTML, uploads a browsable artifact, and on a pull request posts or updates one comment.
 
 Pin `LLazyEmail/email-template-workflows@v1`. That floating major tag tracks the latest `v1.x` release. Immutable patch tags stay where they were published.
 
@@ -13,42 +13,26 @@ Lit scripts still do not accept `--input` / `--output`. That mismatch is tracked
 
 ## Usage
 
-Single template:
+The caller job needs `pull-requests: write` or the comment step fails. Set `pr-comment: false` to skip it.
 
 ```yaml
-- uses: LLazyEmail/email-template-workflows@v1
-  with:
-    working-directory: generated
-    input: ../src/newsletter.md
-    output: newsletter.html
+permissions:
+  contents: read
+  pull-requests: write
+
+steps:
+  - uses: actions/checkout@v7
+  - uses: LLazyEmail/email-template-workflows@v1
+    with:
+      working-directory: .
+      command: npx generate-template --all --out=generated
+      artifact-directory: generated
+      artifact-name: rendered-email
 ```
 
-Several templates (one `input:output` pair per line):
+Single template and `templates:` lines still work. The package version is the consumer `package.json` dependency. The artifact is a directory; the comment links the run and tells you to open `index.html`.
 
-```yaml
-- uses: LLazyEmail/email-template-workflows@v1
-  with:
-    working-directory: generated
-    templates: |
-      ../src/newsletter.md:newsletter.html
-      ../src/welcome.md:welcome.html
-    artifact-directory: .
-    upload-artifact: true
-    artifact-name: rendered-email
-```
-
-Catalog engine, including `@llazyemail/generate-template`:
-
-```yaml
-- uses: LLazyEmail/email-template-workflows@v1
-  with:
-    working-directory: .
-    command: npx generate-template --all --out=generated
-    artifact-directory: generated
-    artifact-name: rendered-email
-```
-
-The package version is the consumer `package.json` dependency, not an action input. Bump `@llazyemail/generate-template` there; this workflow renders whatever is installed. The artifact is a directory. Download it and open `index.html`.
+The comment heading is `### Rendered emails`. A later run updates the existing bot comment instead of adding another one. It also replaces an older `### Sandbox HTML` or fixture comment.
 
 ## Inputs
 
@@ -67,6 +51,7 @@ The package version is the consumer `package.json` dependency, not an action inp
 | `upload-artifact` | no | `true` | Upload the HTML directory |
 | `artifact-name` | no | `rendered-email` | Artifact name |
 | `artifact-directory` | no | empty | Directory to index and upload. Required when `command` is set. |
+| `pr-comment` | no | `true` | Post or update the pull request comment. No-op unless the event is `pull_request`. |
 
 Set `command`, or `templates`, or both `input` and `output`. The action writes `index.html` and `rendered.txt` into the artifact directory and uploads that directory.
 
@@ -74,9 +59,7 @@ Outputs: `html-path` (first file) and `html-count`.
 
 ## Fixture
 
-`fixtures/consumer` covers both modes. The `render` job passes two `templates` lines. The `command` job runs `npm run render-all` and indexes `generated/`. `.github/workflows/fixture-render.yml` calls `uses: ./` so the action is tested without a release tag.
-
-On pull requests the templates job posts or updates a comment listing every rendered file.
+`fixtures/consumer` covers both modes. The `render` job lets the action comment. The `command` job sets `pr-comment: false` so a pull request gets one comment, not two. `.github/workflows/fixture-render.yml` calls `uses: ./`.
 
 ## Consumer contract
 
