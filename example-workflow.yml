@@ -1,4 +1,4 @@
-name: Render email template
+name: Render email templates
 
 on:
   push:
@@ -7,14 +7,60 @@ on:
 jobs:
   render:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v7
       - uses: LLazyEmail/email-template-workflows@v1
+        id: render
         with:
           working-directory: generated
-          input: ../src/newsletter.md
-          output: newsletter.html
-          extra-args: ""
+          templates: |
+            ../src/newsletter.md:newsletter.html
+            ../src/welcome.md:welcome.html
+          artifact-directory: .
           cache: ""
           upload-artifact: true
           artifact-name: rendered-email
+      - name: Comment on the pull request
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const list = fs.existsSync('generated/rendered.txt')
+              ? fs.readFileSync('generated/rendered.txt', 'utf8').split('\n').filter(Boolean).map((line) => `- \`${line}\``).join('\n')
+              : '- (see artifact)';
+            const body = [
+              '### Emails rendered',
+              '',
+              list,
+              '',
+              `- Run: ${runUrl}`,
+              '- Artifact: `rendered-email`',
+              '',
+              'Open the run → **Artifacts** → download → open `index.html`.',
+            ].join('\n');
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+            });
+            const existing = comments.find((c) => c.user?.type === 'Bot' && c.body?.includes('### Emails rendered'));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body,
+              });
+            }
