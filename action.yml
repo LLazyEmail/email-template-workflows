@@ -71,6 +71,7 @@ runs:
       working-directory: ${{ inputs.working-directory }}
     - name: Write index.html for browsable artifact
       if: ${{ inputs.upload-artifact == 'true' }}
+      id: index
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
@@ -89,11 +90,12 @@ runs:
           done
           echo '</ul></body></html>'
         } > "$outdir/index.html"
+        echo "artifact-dir=${{ inputs.working-directory }}/$outdir" >> $GITHUB_OUTPUT
         echo "Wrote index.html in $outdir"
     - if: ${{ inputs.upload-artifact == 'true' }}
       uses: actions/upload-artifact@v7
       with:
         name: ${{ inputs.artifact-name }}
-        path: ${{ inputs.working-directory }}/$(dirname ${{ inputs.output }})
+        path: ${{ steps.index.outputs.artifact-dir }}
         if-no-files-found: error
         retention-days: 14
