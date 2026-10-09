@@ -49,7 +49,7 @@ runs:
       run: npm run ${{ inputs.validate-script }} -- --file "${{ inputs.output }}"
       shell: bash
     - if: ${{ inputs.upload-artifact == 'true' }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: ${{ inputs.artifact-name }}
         path: ${{ inputs.output }}
