@@ -89,10 +89,11 @@ runs:
           done
           echo '</ul></body></html>'
         } > "$outdir/index.html"
+        echo "Wrote index.html in $outdir"
     - if: ${{ inputs.upload-artifact == 'true' }}
       uses: actions/upload-artifact@v7
       with:
         name: ${{ inputs.artifact-name }}
-        path: ${{ inputs.working-directory }}/${{ inputs.output }}
-        # Note: for directory upload of index + html, adjust path to the parent dir if desired.
-        # Currently uploads the single HTML; index is written for local browsing after download of dir if expanded.
+        path: ${{ inputs.working-directory }}/$(dirname ${{ inputs.output }})
+        if-no-files-found: error
+        retention-days: 14
