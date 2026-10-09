@@ -9,8 +9,6 @@ Two render modes:
 - `templates` or `input` / `output` for a script that accepts `--input` and `--output`.
 - `command` for a catalog engine. The action does not append flags. Set `artifact-directory` to the folder the command writes.
 
-Lit scripts still do not accept `--input` / `--output`. That mismatch is tracked in https://github.com/LLazyEmail/email-template-workflows/issues/21. Use `command` for those until the scripts grow the flags.
-
 ## Quick start
 
 Pick one render mode.
@@ -57,7 +55,7 @@ steps:
 
 ## Usage
 
-The caller job needs `pull-requests: write` or the comment step fails. Set `pr-comment: false` to skip it.
+The caller job needs `pull-requests: write` or the comment step fails. Set `pr-comment: false` to skip it. Comments are also skipped for pull requests from forks, which only get a read-only token.
 
 ```yaml
 permissions:
@@ -87,19 +85,21 @@ The comment heading is `### Rendered emails`. A later run updates the existing b
 | `input` | no | empty | Single source path, relative to `working-directory` |
 | `output` | no | empty | Single HTML path, relative to `working-directory` |
 | `working-directory` | no | `generated` | Directory that contains `package.json` |
+| `install-command` | no | `npm install` | Command that installs dependencies in `working-directory`, for example `npm ci`. |
 | `build-script` | no | `build-email` | npm script in that package |
-| `validate-script` | no | `validate-email` | Empty skips validation |
+| `validate-script` | no | `validate-email` | Empty skips validation. If the script is not defined in `package.json`, validation is skipped with a warning. |
 | `extra-args` | no | empty | Appended after `--input` and `--output` for every template |
 | `node-version` | no | `24` | Node.js version |
 | `cache` | no | empty | `npm`, `yarn`, or `pnpm`. Empty skips cache |
 | `upload-artifact` | no | `true` | Upload the HTML directory |
 | `artifact-name` | no | `rendered-email` | Artifact name |
 | `artifact-directory` | no | empty | Directory to index and upload. Required when `command` is set. |
-| `pr-comment` | no | `true` | Post or update the pull request comment. No-op unless the event is `pull_request`. |
+| `retention-days` | no | `14` | Days to keep the uploaded artifact |
+| `pr-comment` | no | `true` | Post or update the pull request comment. No-op unless the event is `pull_request`. Skipped for pull requests from forks. |
 
 Set `command`, or `templates`, or both `input` and `output`. The action writes `index.html` and `rendered.txt` into the artifact directory and uploads that directory.
 
-Outputs: `html-path` (first file) and `html-count`.
+Outputs: `html-path` (first file), `html-count`, `artifact-dir` (the uploaded directory) and `artifact-url` (link to the uploaded artifact, empty when `upload-artifact` is not `true`).
 
 ## Fixture
 
@@ -107,6 +107,6 @@ Outputs: `html-path` (first file) and `html-count`.
 
 ## Consumer contract
 
-The action runs `npm install` inside `working-directory`. Without `command`, it then runs `npm run <build-script> -- --input ... --output ... <extra-args>` for each template. With `command`, it runs that shell command and indexes `artifact-directory`.
+The action runs `install-command` (default `npm install`) inside `working-directory`. Without `command`, it then runs `npm run <build-script> -- --input ... --output ... <extra-args>` for each template. With `command`, it runs that shell command and indexes `artifact-directory`.
 
-`_playing_with_lit` mapping is blocked on issue 21 unless it switches to `command`.
+[`_playing_with_lit`](https://github.com/LLazyEmail/_playing_with_lit) already uses script mode with `--input` and `--output`.
