@@ -7,10 +7,10 @@ Guidance for AI coding agents that work **in** this repository, or that **add th
 `LLazyEmail/email-template-workflows` is a GitHub **composite Action** (`action.yml` at the repo root, no compiled code). It:
 
 1. Sets up Node.js (`actions/setup-node`).
-2. Runs `npm install` in `working-directory`.
+2. Runs `install-command` (default `npm install`) in `working-directory`.
 3. Renders email HTML, either by looping `npm run <build-script>` over input/output pairs, or by running a single shell `command`.
 4. Writes `index.html` and `rendered.txt` into the artifact directory.
-5. Uploads that directory as an artifact (`actions/upload-artifact`, 14-day retention).
+5. Uploads that directory as an artifact (`actions/upload-artifact`, `retention-days` default 14).
 6. On `pull_request`, creates or updates one bot comment headed `### Rendered emails`.
 
 Current tag to use from other repos: `LLazyEmail/email-template-workflows@v1`.
@@ -33,7 +33,7 @@ Follow in order and stop at the first match.
 - Add `actions/checkout@v7` before the Action.
 - Permissions on the caller job:
   - `contents: read`
-  - `pull-requests: write` only if `pr-comment` is left at its default (`true`). Without it the comment step fails.
+  - `pull-requests: write` only if `pr-comment` is left at its default (`true`). Without it the comment step fails. Pull requests from forks only get a read-only token, so the comment step is skipped for them.
   - `packages: read` plus `GITHUB_TOKEN` in `env` if the consumer installs private GitHub Packages (for example `@llazyemail/*` via `.npmrc`).
 - Set `working-directory` explicitly. The default is `generated`, which is rarely right. Use `.` when `package.json` is at the repo root.
 
@@ -46,19 +46,19 @@ Follow in order and stop at the first match.
 | neither | `input` and `output` are both required. |
 | nothing renders | The step fails with "No templates rendered". |
 
-Defaults worth knowing: `working-directory=generated`, `build-script=build-email`, `validate-script=validate-email`, `node-version=24`, `cache=""` (no cache), `upload-artifact=true`, `artifact-name=rendered-email`, `pr-comment=true`.
+Defaults worth knowing: `working-directory=generated`, `install-command=npm install`, `build-script=build-email`, `validate-script=validate-email`, `node-version=24`, `cache=""` (no cache), `upload-artifact=true`, `artifact-name=rendered-email`, `retention-days=14`, `pr-comment=true`.
 
-Outputs: `html-path` (first rendered file) and `html-count`.
+Outputs: `html-path` (first rendered file), `html-count`, `artifact-dir` and `artifact-url` (empty when `upload-artifact` is not `true`).
 
 ## Gotchas (check these before reporting success)
 
-- **`validate-script` runs by default** in script mode (`npm run validate-email -- --file <output>`). If the consumer has no such script, set `validate-script: ""` or the job fails.
+- **`validate-script` runs by default** in script mode (`npm run validate-email -- --file <output>`). If the script is not defined in the consumer's `package.json`, validation is skipped with a warning. Set `validate-script: ""` to skip it silently. If the script exists but fails, the job fails.
 - **`templates` lines split on the first `:`**. Paths containing a colon will break. Lines starting with `#` and blank lines are skipped. `input` and `output` must differ.
 - **`input`/`output` are relative to `working-directory`**, and so is `artifact-directory`.
-- **Command mode only indexes top-level `*.html` files** in `artifact-directory` (`find -maxdepth 1`), excluding `index.html`. Output in subfolders is uploaded but not listed in `index.html`.
+- **Command mode indexes `*.html` files at any depth** in `artifact-directory`, excluding `index.html`. Links in `index.html` are relative to `artifact-directory`.
 - **Matrix jobs share one PR comment.** Every job posting would overwrite the same comment, so set `pr-comment: false` in matrix workflows and give each job a unique `artifact-name`.
 - **`extra-args` is word-split by the shell**, not quoted. Do not put values with spaces in it.
-- **`npm install`, not `npm ci`.** Do not assume a lockfile is enforced.
+- **Installs use `install-command`, default `npm install`.** Set `install-command: npm ci` to enforce the lockfile. The `cache` input only controls the `setup-node` cache; it does not change the install command.
 - **Pin `@v1`.** Do not use `@main`. Immutable patch tags (`v1.x.y`) exist when exact reproducibility is needed.
 - **Known limitation:** issue #21 tracks Lit scripts that did not accept `--input`/`--output`. If a consumer's script does not accept them, use command mode.
 
@@ -74,15 +74,17 @@ After adding or editing a caller workflow:
 
 ## Working on this repository
 
-- `action.yml` is the single source of truth. When inputs, defaults, or outputs change, update `README.md`, `llms.txt`, and this file in the same commit.
+- `action.yml` is the single source of truth. When inputs, defaults, or outputs change, update `README.md`, `llms.txt`, this file and `CHANGELOG.md` in the same commit.
 - `fixtures/consumer` and `.github/workflows/fixture-render.yml` exercise both modes via `uses: ./`. The `command` job sets `pr-comment: false` so a PR gets one comment, not two. Keep that.
+- `.github/workflows/release.yml` moves the floating major tag (`v1`) when a `vMAJOR.MINOR.PATCH` release is published. Publish releases instead of moving tags by hand.
 - `renovate.json` manages dependency updates for the pinned `actions/*` versions.
 - Do not add a build step or compiled code. The Action is composite YAML plus inline shell and `github-script`.
-- Keep the comment markers in `action.yml` (`### Rendered emails` and the legacy headings) stable. The update-in-place behavior depends on them.
+- Keep the comment markers in `action.yml` stable: the hidden `<!-- email-template-workflows -->` marker, `### Rendered emails`, and the legacy headings. The update-in-place behavior depends on them.
 
 ## Reference
 
 - Inputs, outputs, defaults: `action.yml`
 - Human-oriented docs: `README.md`
 - Machine-oriented index: `llms.txt`
+- Release notes: `CHANGELOG.md`
 - Real consumer: `LLazyEmail/_playing_with_lit` → `.github/workflows/render-email-action.yml` (explained in `docs/real-world-example.md`)
