@@ -62,6 +62,10 @@ inputs:
     description: Directory to index and upload, relative to working-directory. Empty uses the directory of the rendered HTML. Required in practice when command is set.
     required: false
     default: ""
+  pr-comment:
+    description: On pull_request, post or update a comment listing the rendered files. The caller job needs pull-requests write.
+    required: false
+    default: "true"
 
 outputs:
   html-path:
@@ -175,3 +179,61 @@ runs:
         path: ${{ steps.render.outputs.artifact-dir }}
         if-no-files-found: error
         retention-days: 14
+    - name: Comment on the pull request
+      if: ${{ github.event_name == 'pull_request' && inputs.pr-comment == 'true' }}
+      uses: actions/github-script@v9
+      env:
+        ARTIFACT_DIR: ${{ steps.render.outputs.artifact-dir }}
+        ARTIFACT_NAME: ${{ inputs.artifact-name }}
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          const runUrl = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+          const renderedPath = path.join(process.env.ARTIFACT_DIR, 'rendered.txt');
+          const list = fs.readFileSync(renderedPath, 'utf8')
+            .split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((line) => `- \`${line}\``)
+            .join('\n');
+          const body = [
+            '### Rendered emails',
+            '',
+            'This PR rendered email templates.',
+            '',
+            list,
+            '',
+            `- Run: ${runUrl}`,
+            `- Artifact: \`${process.env.ARTIFACT_NAME}\``,
+            '',
+            'Open the run → **Artifacts** → download → open `index.html`.',
+          ].join('\n');
+          const markers = [
+            '### Rendered emails',
+            '### Sandbox HTML',
+            '### Fixture emails rendered',
+            '### Fixture email rendered',
+            '### Emails rendered',
+          ];
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.payload.pull_request.number,
+          });
+          const existing = comments.find((c) => c.user?.type === 'Bot' && markers.some((marker) => c.body?.includes(marker)));
+          if (existing) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existing.id,
+              body,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body,
+            });
+          }
