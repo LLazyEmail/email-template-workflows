@@ -61,6 +61,7 @@ Outputs: `html-path` (first rendered file), `html-count`, `artifact-dir` and `ar
 - **Installs use `install-command`, default `npm install`.** Set `install-command: npm ci` to enforce the lockfile. The `cache` input only controls the `setup-node` cache; it does not change the install command.
 - **Pin `@v1`.** Do not use `@main`. Immutable patch tags (`v1.x.y`) exist when exact reproducibility is needed.
 - **Known limitation:** issue #21 tracks Lit scripts that did not accept `--input`/`--output`. If a consumer's script does not accept them, use command mode.
+- **Failure messages:** when a render, validate, or command step fails, the action prints an `::error::` annotation plus a short block naming the failing template/script, the command that was run, and common next checks. A bare `Process completed with exit code 1` means the failure happened before the action's own wrapper (for example during install).
 
 ## Verifying a change
 
