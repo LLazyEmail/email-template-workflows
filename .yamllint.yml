@@ -1,0 +1,18 @@
+# Conservative on purpose: catches real mistakes (duplicate keys, bad
+# indentation, trailing spaces) without fighting long GitHub expressions.
+rules:
+  key-duplicates: enable
+  trailing-spaces: enable
+  new-line-at-end-of-file: enable
+  empty-lines:
+    max: 2
+    max-start: 0
+    max-end: 0
+  indentation:
+    spaces: 2
+    indent-sequences: consistent
+    check-multi-line-strings: false
+
+ignore: |
+  node_modules/
+  fixtures/consumer/node_modules/

@@ -1,0 +1,46 @@
+# Two calls in one workflow, each with its own pull request comment.
+#   * comment-key gives each call its own comment instead of overwriting one.
+#   * fail-fast: false renders every template even if one breaks. The artifact
+#     and the comment are still produced, then the job fails at the end.
+#   * artifact-name must differ, because artifact names are unique per run.
+name: Render marketing and transactional emails
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: LLazyEmail/email-template-workflows@v1
+        with:
+          working-directory: .
+          comment-key: marketing
+          artifact-name: marketing-emails
+          fail-fast: false
+          validate-script: ""
+          templates: |
+            marketing/newsletter.md:generated/marketing/newsletter.html
+            marketing/launch.md:generated/marketing/launch.html
+          artifact-directory: generated/marketing
+
+      - uses: LLazyEmail/email-template-workflows@v1
+        with:
+          working-directory: .
+          comment-key: transactional
+          artifact-name: transactional-emails
+          fail-fast: false
+          validate-script: ""
+          skip-install: true              # already installed by the first call
+          templates: |
+            transactional/receipt.md:generated/transactional/receipt.html
+            transactional/reset.md:generated/transactional/reset.html
+          artifact-directory: generated/transactional

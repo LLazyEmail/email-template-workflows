@@ -1,7 +1,11 @@
 name: Fixture render
 
+# Exercises the Action end to end with `uses: ./` against fixtures/consumer.
+# One job per capability, so a failure points straight at what broke.
+
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -11,15 +15,22 @@ concurrency:
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   render:
+    name: Script mode, templates
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Render fixture templates with the local action
+        id: action
         uses: ./
         with:
           working-directory: fixtures/consumer
@@ -32,6 +43,10 @@ jobs:
           artifact-name: fixture-email
 
       - name: Assert HTML was written
+        env:
+          HTML_COUNT: ${{ steps.action.outputs.html-count }}
+          FAILED_COUNT: ${{ steps.action.outputs.failed-count }}
+          PACKAGE_MANAGER: ${{ steps.action.outputs.package-manager }}
         run: |
           set -euo pipefail
           test -s fixtures/consumer/generated/newsletter.html
@@ -39,11 +54,18 @@ jobs:
           test -s fixtures/consumer/generated/index.html
           count=$(grep -c '<li>' fixtures/consumer/generated/index.html)
           test "$count" -ge 2
+          test "$HTML_COUNT" = 2
+          test "$FAILED_COUNT" = 0
+          test "$PACKAGE_MANAGER" = npm
 
   command:
+    name: Command mode
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Render via command instead of --input/--output
         uses: ./
@@ -64,3 +86,210 @@ jobs:
           test -s fixtures/consumer/generated/rendered.txt
           count=$(grep -c '<li>' fixtures/consumer/generated/index.html)
           test "$count" -ge 2
+
+  build-command:
+    name: Any tool via build-command
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Render with a shell command per template
+        uses: ./
+        with:
+          working-directory: fixtures/consumer
+          templates: |
+            src/newsletter.md:generated/newsletter.html
+            src/welcome.md:generated/welcome.html
+          build-command: node build-env.js
+          validate-command: grep -q '<title>env</title>' "$EMAIL_TEMPLATE_OUTPUT"
+          artifact-directory: generated
+          upload-artifact: false
+          pr-comment: false
+
+      - name: Assert
+        run: |
+          set -euo pipefail
+          grep -q '<title>env</title>' fixtures/consumer/generated/newsletter.html
+          grep -q '<title>env</title>' fixtures/consumer/generated/welcome.html
+          test "$(grep -c '<li>' fixtures/consumer/generated/index.html)" -eq 2
+
+  argument-styles:
+    name: Flag styles (positional, --flag=value, env)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Positional arguments
+        uses: ./
+        with:
+          working-directory: fixtures/consumer
+          build-script: build-positional
+          input-flag: ""
+          output-flag: ""
+          validate-script: ""
+          input: src/newsletter.md
+          output: generated/positional.html
+          upload-artifact: false
+          pr-comment: false
+
+      - name: Equals-style flags
+        uses: ./
+        with:
+          working-directory: fixtures/consumer
+          build-script: build-equals
+          input-flag: --src=
+          output-flag: --dest=
+          validate-script: ""
+          input: src/newsletter.md
+          output: generated/equals.html
+          upload-artifact: false
+          pr-comment: false
+
+      - name: Script that reads EMAIL_TEMPLATE_INPUT and EMAIL_TEMPLATE_OUTPUT
+        uses: ./
+        with:
+          working-directory: fixtures/consumer
+          build-script: build-env
+          validate-script: ""
+          input: src/newsletter.md
+          output: generated/env.html
+          upload-artifact: false
+          pr-comment: false
+
+      - name: Assert
+        run: |
+          set -euo pipefail
+          grep -q '<title>positional</title>' fixtures/consumer/generated/positional.html
+          grep -q '<title>equals</title>' fixtures/consumer/generated/equals.html
+          grep -q '<title>env</title>' fixtures/consumer/generated/env.html
+
+  keep-going:
+    name: fail-fast false keeps rendering
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Render with one template that cannot be built
+        id: action
+        uses: ./
+        continue-on-error: true
+        with:
+          working-directory: fixtures/consumer
+          templates: |
+            src/newsletter.md:generated/newsletter.html
+            src/does-not-exist.md:generated/broken.html
+            src/welcome.md:generated/welcome.html
+          artifact-directory: generated
+          fail-fast: false
+          upload-artifact: false
+          pr-comment: false
+
+      - name: Assert the good templates were kept and the job still failed
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          set -euo pipefail
+          test "$OUTCOME" = failure
+          test -s fixtures/consumer/generated/newsletter.html
+          test -s fixtures/consumer/generated/welcome.html
+          test ! -e fixtures/consumer/generated/broken.html
+          test "$(grep -c '<li>' fixtures/consumer/generated/index.html)" -ge 3
+          grep -q 'src/does-not-exist.md' fixtures/consumer/generated/failed.txt
+
+  package-managers:
+    name: ${{ matrix.pm }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            pm: npm
+          - os: ubuntu-latest
+            pm: pnpm
+          - os: ubuntu-latest
+            pm: yarn
+          - os: ubuntu-latest
+            pm: bun
+          - os: macos-latest
+            pm: npm
+          - os: windows-latest
+            pm: npm
+          - os: windows-latest
+            pm: pnpm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Render with ${{ matrix.pm }}
+        id: action
+        uses: ./
+        with:
+          working-directory: fixtures/consumer
+          package-manager: ${{ matrix.pm }}
+          cache: auto
+          templates: |
+            src/newsletter.md:generated/newsletter.html
+            src/welcome.md:generated/welcome.html
+          extra-args: --title FromPM
+          artifact-directory: generated
+          upload-artifact: false
+          pr-comment: false
+
+      - name: Assert
+        env:
+          EXPECTED: ${{ matrix.pm }}
+          ACTUAL: ${{ steps.action.outputs.package-manager }}
+        run: |
+          set -euo pipefail
+          test "$ACTUAL" = "$EXPECTED"
+          grep -q '<title>FromPM</title>' fixtures/consumer/generated/newsletter.html
+          test "$(grep -c '<li>' fixtures/consumer/generated/index.html)" -eq 2
+
+  detect-package-manager:
+    name: packageManager field is detected and activated
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Declare pnpm in the fixture package.json
+        run: |
+          set -euo pipefail
+          cd fixtures/consumer
+          node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("package.json","utf8"));p.packageManager="pnpm@10.28.0";fs.writeFileSync("package.json",JSON.stringify(p,null,2)+"\n")'
+
+      - name: Render with package-manager auto
+        id: action
+        uses: ./
+        with:
+          working-directory: fixtures/consumer
+          input: src/newsletter.md
+          output: generated/newsletter.html
+          upload-artifact: false
+          pr-comment: false
+
+      - name: Assert pnpm was chosen and is the declared version
+        env:
+          ACTUAL: ${{ steps.action.outputs.package-manager }}
+        run: |
+          set -euo pipefail
+          test "$ACTUAL" = pnpm
+          test "$(cd fixtures/consumer && pnpm --version)" = 10.28.0
+          test -s fixtures/consumer/generated/newsletter.html

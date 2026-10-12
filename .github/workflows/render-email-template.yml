@@ -4,22 +4,36 @@ on:
   push:
     paths:
       - action.yml
-      - .github/workflows/render-email-template.yml
+      - README.md
+      - scripts/**
+      - tests/check-action.py
+      - .github/workflows/**
+      - examples/**
   pull_request:
     paths:
       - action.yml
-      - .github/workflows/render-email-template.yml
+      - README.md
+      - scripts/**
+      - tests/check-action.py
+      - .github/workflows/**
+      - examples/**
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   metadata:
     name: Validate action.yml shape
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Require composite action metadata
         run: |
@@ -30,3 +44,9 @@ jobs:
             echo "Composite run steps must set shell: bash"
             exit 1
           }
+
+      - name: Check inputs, outputs, docs and pinned actions
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'pyyaml==6.0.3'
+          python3 tests/check-action.py

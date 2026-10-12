@@ -216,3 +216,14 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Node
+node_modules/
+
+# Output and lockfiles that the fixture tests create
+fixtures/consumer/generated/
+fixtures/consumer/package-lock.json
+fixtures/consumer/pnpm-lock.yaml
+fixtures/consumer/yarn.lock
+fixtures/consumer/bun.lock
+fixtures/consumer/bun.lockb

@@ -1,0 +1,30 @@
+# Any CLI, no npm script needed: build-command runs once per template.
+# The paths arrive as $EMAIL_TEMPLATE_INPUT and $EMAIL_TEMPLATE_OUTPUT, so the
+# command never has to be string-substituted and paths with spaces are safe.
+# Works the same for Maizzle, pandoc, a Python script, and so on.
+name: Render MJML emails
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: LLazyEmail/email-template-workflows@v1
+        with:
+          working-directory: .
+          templates: |
+            emails/welcome.mjml:dist/welcome.html
+            emails/invoice.mjml:dist/invoice.html
+          build-command: npx mjml "$EMAIL_TEMPLATE_INPUT" -o "$EMAIL_TEMPLATE_OUTPUT"
+          validate-script: ""             # no validate-email script in this project
+          artifact-directory: dist
+          artifact-name: rendered-email

@@ -1,0 +1,32 @@
+# Not a pull request: a weekly render plus a manual trigger.
+# There is no pull request to comment on, so pr-comment is off. The rendered
+# files and their sizes still appear in the job summary (job-summary defaults to
+# true and needs no token permission), and the HTML is in the artifact.
+# size-limit-kb makes the run warn when an email is large enough for Gmail to
+# clip it.
+name: Weekly email render
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: LLazyEmail/email-template-workflows@v1
+        with:
+          working-directory: .
+          node-version-file: .nvmrc       # relative to the repository root
+          install-command: npm ci
+          command: npx generate-template --all --out=generated
+          artifact-directory: generated
+          artifact-name: weekly-emails
+          retention-days: "30"
+          size-limit-kb: "102"
+          pr-comment: false

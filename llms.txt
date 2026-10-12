@@ -1,6 +1,6 @@
 # email-template-workflows
 
-> A reusable GitHub composite Action (`LLazyEmail/email-template-workflows@v1`) that installs a Node.js consumer package, renders email templates to static HTML, uploads the HTML directory as a workflow artifact with a browsable `index.html`, and on pull requests posts or updates a single "Rendered emails" comment.
+> A reusable GitHub composite Action (`LLazyEmail/email-template-workflows@v1`) that installs a Node.js consumer package, renders email templates to static HTML with npm, yarn, pnpm, bun or any CLI, uploads the HTML directory as a workflow artifact with a browsable `index.html`, and on pull requests posts or updates a single "Rendered emails" comment.
 
 Use this Action when a repository builds HTML emails with an npm script or a CLI (MJML, Lit, Markdown-to-email, a template catalog) and you want CI to render them, publish them for review, and link them from the pull request. It is not an email sender, a linter, or a template library. It runs your build and publishes the result.
 
@@ -17,8 +17,11 @@ Pin to the floating major tag `@v1`. It tracks the latest `v1.x` release. Minima
 
 ## Pick a render mode
 
-- Script mode: set `input` + `output`, or a multiline `templates` (`input:output` per line). The Action runs `npm run <build-script> -- --input X --output Y [extra-args]` for each pair. Your script must accept `--input` and `--output`.
-- Command mode: set `command` and `artifact-directory`. The Action runs the shell command as-is (no flags appended) and indexes the `*.html` files (any depth) in `artifact-directory`. `command` overrides `templates`, `input`, `output`, `build-script`, `validate-script`, and `extra-args`.
+- Script mode: set `input` + `output`, or a multiline `templates` (`input:output` per line). The Action runs `<package-manager> run <build-script>` with the input and output paths (and `extra-args`) for each pair. Change how the paths are passed with `input-flag` / `output-flag` (`--src`, `--src=`, or empty for positional). `EMAIL_TEMPLATE_INPUT` and `EMAIL_TEMPLATE_OUTPUT` are always set.
+- Build-command mode: set `build-command` plus `templates` (or `input` + `output`). The Action runs that shell command once per template, with the paths in `$EMAIL_TEMPLATE_INPUT` and `$EMAIL_TEMPLATE_OUTPUT`. Use it for MJML, Maizzle, pandoc or a script in any language.
+- Command mode: set `command` and `artifact-directory`. The Action runs the shell command as-is (no flags appended) and indexes the `*.html` files (any depth) in `artifact-directory`. `command` overrides every other render input.
+
+The package manager is detected (`package-manager: auto`) from the `packageManager` field, then the lockfile in `working-directory` or its parents, then npm. `fail-fast: false` renders the remaining templates after a failure and fails the job at the end. `comment-key` gives a call its own pull request comment. A job summary and a Gmail-clipping size warning (`size-limit-kb`) are on by default.
 
 ## Docs
 
@@ -33,12 +36,16 @@ Pin to the floating major tag `@v1`. It tracks the latest `v1.x` release. Minima
 - [Single template](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/examples/script-mode-single.yml)
 - [Several templates via `templates:`](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/examples/script-mode-templates.yml)
 - [Catalog engine via `command:`](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/examples/command-mode.yml)
+- [Any CLI via `build-command` (MJML)](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/examples/mjml-build-command.yml)
+- [pnpm workspace](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/examples/pnpm-monorepo.yml)
+- [`fail-fast: false` and two comments](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/examples/keep-going-two-comments.yml)
+- [Scheduled run, no pull request](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/examples/scheduled-summary-only.yml)
 - [Matrix, one job per template](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/examples/matrix-script-mode.yml)
 
 ## Optional
 
 - [Repository metadata suggestions](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/docs/REPO-METADATA.md): description, topics, Marketplace branding
 - [Changelog](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/CHANGELOG.md): what changed in each release
-- [Issues](https://github.com/LLazyEmail/email-template-workflows/issues): known limitations, for example #21 on Lit scripts and `--input`/`--output`
+- [Issues](https://github.com/LLazyEmail/email-template-workflows/issues): known limitations. #21 (Lit scripts and `--input`/`--output`) is addressed by `input-flag`, `output-flag`, `EMAIL_TEMPLATE_*` and `build-command`
 - [Marketplace listing](https://github.com/marketplace/actions/render-email-template)
 - [License (MIT)](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/LICENSE)

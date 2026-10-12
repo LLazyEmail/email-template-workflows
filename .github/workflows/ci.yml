@@ -1,0 +1,102 @@
+name: CI
+
+# Lints the YAML, shell and workflows, and runs the unit tests for the scripts
+# the Action is built from. The end-to-end checks live in fixture-render.yml.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: yamllint
+        run: pipx run 'yamllint==1.38.0' --format github .
+
+      # Findings are printed as annotations, so they show up on the pull request
+      # files as well as in the log.
+      - name: shellcheck
+        run: |
+          shellcheck --version
+          status=0
+          shellcheck -x -f gcc scripts/*.sh tests/*.sh > "$RUNNER_TEMP/shellcheck.txt" || status=$?
+          sed -E 's#^([^:]+):([0-9]+):([0-9]+): ([a-z]+): (.*)$#::error file=\1,line=\2,col=\3::\5#' "$RUNNER_TEMP/shellcheck.txt"
+          exit "$status"
+
+      - name: actionlint
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/914e7df21a07ef503a81201c76d2b11c789d3fca/scripts/download-actionlint.bash) 1.7.12
+          status=0
+          ./actionlint -no-color > "$RUNNER_TEMP/actionlint.txt" 2>&1 || status=$?
+          cat "$RUNNER_TEMP/actionlint.txt"
+          sed -nE 's#^([^:]+):([0-9]+):([0-9]+): (.*)$#::error file=\1,line=\2,col=\3::\4#p' "$RUNNER_TEMP/actionlint.txt"
+          exit "$status"
+
+      - name: Syntax-check the Node scripts
+        run: |
+          node --check scripts/pr-comment.js
+          node --check tests/pr-comment.test.js
+
+  test:
+    name: Unit tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Show tool versions
+        run: |
+          bash --version | head -n 1
+          node --version
+          npm --version
+
+      - name: Package manager detection
+        run: bash tests/detect-package-manager.test.sh
+
+      - name: Render script
+        run: bash tests/render.test.sh
+
+      - name: Pull request comment
+        run: node tests/pr-comment.test.js
+
+      # macOS ships bash 3.2 as /bin/bash, and Homebrew's bash comes first on
+      # PATH on the runners. Put the system bash first to prove the scripts
+      # still run on it.
+      - name: Render script on the system bash 3.2
+        if: ${{ runner.os == 'macOS' }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/system-bash"
+          ln -sf /bin/bash "$RUNNER_TEMP/system-bash/bash"
+          export PATH="$RUNNER_TEMP/system-bash:$PATH"
+          bash --version | head -n 1
+          bash tests/detect-package-manager.test.sh
+          bash tests/render.test.sh
