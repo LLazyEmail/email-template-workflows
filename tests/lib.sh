@@ -14,6 +14,10 @@ fail() {
   FAIL=$((FAIL + 1))
   echo "  FAIL $1"
   [ -z "${2:-}" ] || echo "       $2"
+  # On GitHub Actions, also raise an annotation so the failure is visible on the run page.
+  if [ -n "${GITHUB_ACTIONS:-}" ]; then
+    echo "::error::test failed: $1${2:+ ($2)}"
+  fi
 }
 
 # assert_eq <description> <expected> <actual>

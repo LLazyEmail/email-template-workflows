@@ -5,7 +5,7 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-# shellcheck source=lib.sh
+# shellcheck source-path=SCRIPTDIR source=lib.sh
 . "$ROOT/tests/lib.sh"
 
 TMP=$(mktemp -d)
@@ -227,10 +227,20 @@ assert_contains "command failure is explained" "$LOG" "::error::command mode fai
 echo "render.sh: HTML escaping in index.html"
 
 new_project
-printf 'x' > "$PROJ/src/a&b<c>.md"
-render SINGLE_INPUT='src/a&b<c>.md' SINGLE_OUTPUT='generated/a&b<c>.html' VALIDATE_SCRIPT=
-assert_eq "special characters in file names render" 0 "$RC"
-assert_contains "index.html escapes & < >" "$PROJ/generated/index.html" 'a&amp;b&lt;c&gt;.html'
+printf 'x' > "$PROJ/src/a&b.md"
+render SINGLE_INPUT='src/a&b.md' SINGLE_OUTPUT='generated/a&b.html' VALIDATE_SCRIPT=
+assert_eq "an ampersand in a file name renders" 0 "$RC"
+assert_contains "index.html escapes &" "$PROJ/generated/index.html" 'a&amp;b.html'
+
+# < and > are not allowed in Windows file names, so only test them where they are.
+new_project
+if printf 'x' > "$PROJ/src/a<b>.md" 2> /dev/null; then
+  render SINGLE_INPUT='src/a<b>.md' SINGLE_OUTPUT='generated/a<b>.html' VALIDATE_SCRIPT=
+  assert_eq "angle brackets in a file name render" 0 "$RC"
+  assert_contains "index.html escapes < and >" "$PROJ/generated/index.html" 'a&lt;b&gt;.html'
+else
+  echo "  skip angle brackets (not allowed in file names here)"
+fi
 
 echo "render.sh: size warning"
 
