@@ -5,6 +5,11 @@ All notable changes to `LLazyEmail/email-template-workflows` are listed here.
 ## [Unreleased]
 
 ### Added
+- Clearer console explanations when a render or validate step fails. Instead of a bare `Process completed with exit code 1`, the action now prints an `::error::` annotation and a short block that names the failing template/script, shows the command that was run, and lists common next checks.
+- Pre-flight check that the `build-script` exists in `package.json` before any template is rendered.
+- Explicit failure message when a build script exits 0 but does not produce a non-empty HTML file at the expected output path.
+
+### Added
 - `install-command` input (default `npm install`) so consumers can use `npm ci` or another installer.
 - `retention-days` input (default `14`) for the uploaded artifact.
 - `artifact-dir` and `artifact-url` outputs.
