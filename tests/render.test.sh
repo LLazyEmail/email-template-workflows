@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Tests for scripts/render.sh against a copy of fixtures/consumer.
 # Package-manager cases run only for the package managers that are installed.
+# shellcheck disable=SC2016 # single quotes are intentional: these strings are run later by bash -c
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-# shellcheck source=tests/lib.sh
+# shellcheck source=lib.sh
 . "$ROOT/tests/lib.sh"
 
 TMP=$(mktemp -d)

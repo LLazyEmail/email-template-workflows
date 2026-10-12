@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-# shellcheck source=tests/lib.sh
+# shellcheck source=lib.sh
 . "$ROOT/tests/lib.sh"
 
 TMP=$(mktemp -d)

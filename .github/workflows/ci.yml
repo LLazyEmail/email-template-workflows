@@ -29,15 +29,20 @@ jobs:
       - name: yamllint
         run: pipx run 'yamllint==1.38.0' --format github .
 
+      # Findings are printed as annotations, so they show up on the pull request
+      # files as well as in the log.
       - name: shellcheck
         run: |
           shellcheck --version
-          shellcheck scripts/*.sh tests/*.sh
+          status=0
+          shellcheck -x -f gcc scripts/*.sh tests/*.sh > "$RUNNER_TEMP/shellcheck.txt" || status=$?
+          sed -E 's#^([^:]+):([0-9]+):([0-9]+): ([a-z]+): (.*)$#::error file=\1,line=\2,col=\3::\5#' "$RUNNER_TEMP/shellcheck.txt"
+          exit "$status"
 
       - name: actionlint
         run: |
           bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/914e7df21a07ef503a81201c76d2b11c789d3fca/scripts/download-actionlint.bash) 1.7.12
-          ./actionlint -color
+          ./actionlint -format '{{range $err := .}}::error file={{$err.Filepath}},line={{$err.Line}},col={{$err.Column}}::{{$err.Message}} [{{$err.Kind}}]{{"\n"}}{{end}}'
 
       - name: Syntax-check the Node scripts
         run: |
