@@ -135,14 +135,32 @@ runs:
           node -e 'console.log(require("path").relative(process.argv[1],process.argv[2]))' "$1" "$2"
         }
         esc() {
-          sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g'
+          sed -e 's/&/\&/g' -e 's/</\</g' -e 's/>/\>/g' -e 's/"/\"/g'
+        }
+        explain_failure() {
+          local what="$1"
+          local detail="$2"
+          echo ""
+          echo "::error::${what}"
+          echo "----------------------------------------"
+          echo "$detail"
+          echo "----------------------------------------"
+          echo "Common next checks:"
+          echo "  - Does the npm script exist in package.json?"
+          echo "  - Does the script accept the flags the action passes (--input / --output)?"
+          echo "  - Did the script write a non-empty HTML file at the expected path?"
+          echo "  - Look at the lines above for the actual script output (tsc, node, etc.)."
+          echo ""
         }
         rendered=()
         if [ -n "$COMMAND" ]; then
           echo "running command: $COMMAND"
-          bash -lc "$COMMAND"
+          if ! bash -lc "$COMMAND"; then
+            explain_failure "command mode failed" "The command exited non-zero:\n  $COMMAND\n\nNo HTML was indexed. Check the command output above."
+            exit 1
+          fi
           if [ -z "$ARTIFACT_DIRECTORY" ]; then
-            echo "command mode requires artifact-directory"
+            explain_failure "missing artifact-directory" "command mode requires the artifact-directory input so the action knows which folder to index."
             exit 1
           fi
           outdir="$ARTIFACT_DIRECTORY"
@@ -151,6 +169,14 @@ runs:
             rendered+=("$f")
           done < <(find "$outdir" -name '*.html' ! -name 'index.html' | sort)
         else
+          if [ -z "$BUILD_SCRIPT" ]; then
+            explain_failure "missing build-script" "script mode requires a build-script input (or set command instead)."
+            exit 1
+          fi
+          if ! has_script "$BUILD_SCRIPT"; then
+            explain_failure "build-script not found" "npm script '$BUILD_SCRIPT' is not defined in package.json.\n\nAdd it, or set the build-script input to a script that exists."
+            exit 1
+          fi
           mapfile -t pairs < <(
             if [ -n "$TEMPLATES" ]; then
               printf '%s\n' "$TEMPLATES"
@@ -165,19 +191,29 @@ runs:
             input=${line%%:*}
             output=${line#*:}
             if [ -z "$input" ] || [ -z "$output" ] || [ "$input" = "$output" ]; then
-              echo "invalid template line (expected input:output): $line"
+              explain_failure "invalid template line" "Expected input:output, got: $line"
               exit 1
             fi
             echo "rendering $input -> $output"
-            npm run "$BUILD_SCRIPT" -- --input "$input" --output "$output" $EXTRA_ARGS
+            echo "  script: npm run $BUILD_SCRIPT -- --input $input --output $output $EXTRA_ARGS"
+            if ! npm run "$BUILD_SCRIPT" -- --input "$input" --output "$output" $EXTRA_ARGS; then
+              explain_failure "render failed for $input" "npm run $BUILD_SCRIPT exited non-zero while rendering:\n  input:  $input\n  output: $output\n\nThe script's own output is above (for example a tsc error, a missing template, or a non-zero exit from the node process). Fix the consumer script or its dependencies, then re-run."
+              exit 1
+            fi
             if [ -n "$VALIDATE_SCRIPT" ]; then
               if has_script "$VALIDATE_SCRIPT"; then
-                npm run "$VALIDATE_SCRIPT" -- --file "$output"
+                if ! npm run "$VALIDATE_SCRIPT" -- --file "$output"; then
+                  explain_failure "validation failed for $output" "npm run $VALIDATE_SCRIPT exited non-zero on:\n  $output\n\nCheck the validation script output above."
+                  exit 1
+                fi
               else
                 echo "::warning::validate-script '$VALIDATE_SCRIPT' is not defined in package.json; skipping validation"
               fi
             fi
-            test -s "$output"
+            if [ ! -s "$output" ]; then
+              explain_failure "empty or missing output" "The build script succeeded but did not produce a non-empty file at:\n  $output\n\nConfirm the script actually writes that path (it may ignore --output or write elsewhere)."
+              exit 1
+            fi
             rendered+=("$output")
           done
           if [ -n "$ARTIFACT_DIRECTORY" ]; then
@@ -187,7 +223,7 @@ runs:
           fi
         fi
         if [ "${#rendered[@]}" -eq 0 ]; then
-          echo "No templates rendered. Set command plus artifact-directory, templates, or both input and output."
+          explain_failure "no templates rendered" "Set command plus artifact-directory, templates, or both input and output. Nothing was written."
           exit 1
         fi
         mkdir -p "$outdir"
