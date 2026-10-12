@@ -42,7 +42,11 @@ jobs:
       - name: actionlint
         run: |
           bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/914e7df21a07ef503a81201c76d2b11c789d3fca/scripts/download-actionlint.bash) 1.7.12
-          ./actionlint -format '{{range $err := .}}::error file={{$err.Filepath}},line={{$err.Line}},col={{$err.Column}}::{{$err.Message}} [{{$err.Kind}}]{{"\n"}}{{end}}'
+          status=0
+          ./actionlint -no-color > "$RUNNER_TEMP/actionlint.txt" 2>&1 || status=$?
+          cat "$RUNNER_TEMP/actionlint.txt"
+          sed -nE 's#^([^:]+):([0-9]+):([0-9]+): (.*)$#::error file=\1,line=\2,col=\3::\4#p' "$RUNNER_TEMP/actionlint.txt"
+          exit "$status"
 
       - name: Syntax-check the Node scripts
         run: |
