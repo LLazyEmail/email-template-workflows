@@ -4,14 +4,15 @@ Guidance for AI coding agents that work **in** this repository, or that **add th
 
 ## What this is
 
-`LLazyEmail/email-template-workflows` is a GitHub **composite Action** (`action.yml` at the repo root, no compiled code). It:
+`LLazyEmail/email-template-workflows` is a GitHub **composite Action** (`action.yml` at the repo root, shell and one `github-script` file, no compiled code). It:
 
-1. Sets up Node.js (`actions/setup-node`).
-2. Runs `install-command` (default `npm install`) in `working-directory`.
-3. Renders email HTML, either by looping `npm run <build-script>` over input/output pairs, or by running a single shell `command`.
-4. Writes `index.html` and `rendered.txt` into the artifact directory.
-5. Uploads that directory as an artifact (`actions/upload-artifact`, `retention-days` default 14).
-6. On `pull_request`, creates or updates one bot comment headed `### Rendered emails`.
+1. Detects the package manager (`scripts/detect-package-manager.sh`): npm, yarn, pnpm or bun.
+2. Activates it (Corepack for yarn and pnpm, `oven-sh/setup-bun` for bun) and sets up Node.js (`actions/setup-node`).
+3. Runs `install-command` (default `<package-manager> install`) in `working-directory`, then `prebuild-command` if set.
+4. Renders email HTML (`scripts/render.sh`): `command` once, or `build-command` / `<pm> run <build-script>` per template.
+5. Writes `index.html`, `rendered.txt` (and `failed.txt`) into the artifact directory, and a job summary.
+6. Uploads that directory as an artifact (`actions/upload-artifact`, `retention-days` default 14).
+7. On `pull_request`, creates or updates one bot comment headed `### Rendered emails` (`scripts/pr-comment.js`).
 
 Current tag to use from other repos: `LLazyEmail/email-template-workflows@v1`.
 
@@ -21,66 +22,77 @@ Follow in order and stop at the first match.
 
 1. **Does the consumer have a CLI or script that renders a whole folder or catalog?** (for example `npx generate-template --all --out=generated`, `npm run sandbox`)
    Use **command mode**: set `command` and `artifact-directory`. Do not set `input`/`output`/`templates`; they are ignored.
-2. **Does the consumer have an npm script that accepts `--input <path>` and `--output <path>`?**
+2. **Does the consumer render one template at a time with a tool that is not an npm script?** (MJML, Maizzle, pandoc, a Python script)
+   Use **`build-command`** with `templates` (or `input` + `output`). The command reads `$EMAIL_TEMPLATE_INPUT` and `$EMAIL_TEMPLATE_OUTPUT`. Quote them.
+3. **Does the consumer have an npm script that accepts the input and output paths?**
    Use **script mode**.
    - One template: `input` + `output`.
    - Several in one job: `templates` (one `input:output` per line).
    - Many, with separate pass/fail per template: a job `matrix` with one `input`/`output`/`build-script` per row (see `examples/matrix-script-mode.yml`).
-3. **The npm script does not accept those flags?** Use command mode with the exact command the project already uses, or change the script. Do not invent flags.
+   - Different argument names: set `input-flag` / `output-flag` (`--src`, `--src=`, or empty for positional). A script that reads environment variables needs nothing: `EMAIL_TEMPLATE_INPUT` and `EMAIL_TEMPLATE_OUTPUT` are always set.
+4. **None of these fit?** Use command mode with the exact command the project already uses. Do not invent flags.
 
 ## Required caller setup
 
 - Add `actions/checkout@v7` before the Action.
 - Permissions on the caller job:
   - `contents: read`
-  - `pull-requests: write` only if `pr-comment` is left at its default (`true`). Without it the comment step fails. Pull requests from forks only get a read-only token, so the comment step is skipped for them.
-  - `packages: read` plus `GITHUB_TOKEN` in `env` if the consumer installs private GitHub Packages (for example `@llazyemail/*` via `.npmrc`).
+  - `pull-requests: write` only if `pr-comment` is left at its default (`true`). Without it, or with a read-only token (Dependabot), the comment is skipped with a warning and the job still passes. Pull requests from forks are skipped.
+  - `packages: read` plus `GITHUB_TOKEN` in `env` if the consumer installs private GitHub Packages (for example `@llazyemail/*` via `.npmrc`), or use `registry-url` with `NODE_AUTH_TOKEN`.
 - Set `working-directory` explicitly. The default is `generated`, which is rarely right. Use `.` when `package.json` is at the repo root.
 
 ## Input precedence and defaults
 
 | Condition | Effect |
 | --- | --- |
-| `command` set | `templates`, `input`, `output`, `build-script`, `validate-script`, `extra-args` are all ignored. `artifact-directory` is **required** (the step exits 1 without it). |
+| `command` set | `templates`, `input`, `output`, `build-command`, `build-script`, `validate-command`, `validate-script`, `extra-args` are all ignored. `artifact-directory` is **required** (the step exits 1 without it). |
+| `build-command` set | Wins over `build-script`, `input-flag`, `output-flag` and `extra-args`. |
+| `validate-command` set | Wins over `validate-script`. |
 | `templates` set | `input` and `output` are ignored. |
 | neither | `input` and `output` are both required. |
 | nothing renders | The step fails with "No templates rendered". |
 
-Defaults worth knowing: `working-directory=generated`, `install-command=npm install`, `build-script=build-email`, `validate-script=validate-email`, `node-version=24`, `cache=""` (no cache), `upload-artifact=true`, `artifact-name=rendered-email`, `retention-days=14`, `pr-comment=true`.
+Defaults worth knowing: `working-directory=generated`, `package-manager=auto`, `install-command=""` (runs `<pm> install`), `build-script=build-email`, `validate-script=validate-email`, `input-flag=--input`, `output-flag=--output`, `validate-flag=--file`, `node-version=24`, `cache=""` (no cache), `fail-fast=true`, `size-limit-kb=102`, `job-summary=true`, `upload-artifact=true`, `artifact-name=rendered-email`, `retention-days=14`, `pr-comment=true`.
 
-Outputs: `html-path` (first rendered file), `html-count`, `artifact-dir` and `artifact-url` (empty when `upload-artifact` is not `true`).
+Outputs: `html-path` (first rendered file), `html-count`, `failed-count`, `artifact-dir`, `artifact-url` (empty when `upload-artifact` is not `true`) and `package-manager`.
 
 ## Gotchas (check these before reporting success)
 
-- **`validate-script` runs by default** in script mode (`npm run validate-email -- --file <output>`). If the script is not defined in the consumer's `package.json`, validation is skipped with a warning. Set `validate-script: ""` to skip it silently. If the script exists but fails, the job fails.
+- **`validate-script` runs by default** in script and build-command modes (`<pm> run validate-email --file <output>`). If the script is not defined in the consumer's `package.json`, validation is skipped with a warning. Set `validate-script: ""` to skip it silently. If the script exists but fails, the job fails.
 - **`templates` lines split on the first `:`**. Paths containing a colon will break. Lines starting with `#` and blank lines are skipped. `input` and `output` must differ.
-- **`input`/`output` are relative to `working-directory`**, and so is `artifact-directory`.
+- **`input`/`output` are relative to `working-directory`**, and so is `artifact-directory`. `node-version-file` is relative to the workspace root.
 - **Command mode indexes `*.html` files at any depth** in `artifact-directory`, excluding `index.html`. Links in `index.html` are relative to `artifact-directory`.
-- **Matrix jobs share one PR comment.** Every job posting would overwrite the same comment, so set `pr-comment: false` in matrix workflows and give each job a unique `artifact-name`.
-- **`extra-args` is word-split by the shell**, not quoted. Do not put values with spaces in it.
-- **Installs use `install-command`, default `npm install`.** Set `install-command: npm ci` to enforce the lockfile. The `cache` input only controls the `setup-node` cache; it does not change the install command.
+- **Matrix jobs and several calls share one PR comment** unless each has a `comment-key`. Either set `pr-comment: false` in matrix workflows or give every call its own `comment-key`. Always give each call a unique `artifact-name`.
+- **`extra-args` is split on whitespace**, never glob-expanded or evaluated. Do not put values with spaces in it. It applies to `build-script` only.
+- **The package manager is auto-detected** from the `packageManager` field, then the lockfile (also in parent folders), then npm. Set `package-manager` if a repository has several lockfiles.
+- **Installs use `install-command`, default `<pm> install`.** Set `install-command: npm ci` (or `pnpm install --frozen-lockfile`, `yarn install --immutable`) to enforce the lockfile. `cache` only controls the `setup-node` cache: `auto` follows the detected package manager when a lockfile exists, empty never caches. The action always passes `package-manager-cache: false` to `setup-node`, so nothing is cached unless `cache` says so.
+- **`fail-fast: false`** keeps rendering after a failure and fails the job at the very end, after the artifact and the comment.
+- **Node.js must be on `PATH`** even with `setup-node: false`, because the action uses it to index the output.
 - **Pin `@v1`.** Do not use `@main`. Immutable patch tags (`v1.x.y`) exist when exact reproducibility is needed.
-- **Known limitation:** issue #21 tracks Lit scripts that did not accept `--input`/`--output`. If a consumer's script does not accept them, use command mode.
-- **Failure messages:** when a render, validate, or command step fails, the action prints an `::error::` annotation plus a short block naming the failing template/script, the command that was run, and common next checks. A bare `Process completed with exit code 1` means the failure happened before the action's own wrapper (for example during install).
+- **Known limitation, now solvable:** issue #21 tracks Lit scripts that did not accept `--input`/`--output`. Use `input-flag` / `output-flag`, read `EMAIL_TEMPLATE_*` in the script, or use `build-command`.
+- **Failure messages:** when a render, validate, or command step fails, the action prints an `::error::` annotation plus a short block naming the failing template or script, the command that was run, and common next checks. A bare `Process completed with exit code 1` means the failure happened before the render step's own wrapper (for example during install).
 
 ## Verifying a change
 
 After adding or editing a caller workflow:
 
 1. Confirm the workflow YAML is valid and the `uses:` line is `LLazyEmail/email-template-workflows@v1`.
-2. Confirm every `npm run` script named in `build-script` (and `validate-script`) exists in the consumer's `package.json`.
+2. Confirm every package script named in `build-script` (and `validate-script`) exists in the consumer's `package.json`.
 3. Confirm `artifact-directory` matches where the build actually writes.
 4. Confirm permissions match the table above.
-5. Push to a branch and open a pull request; the run should show an artifact named `artifact-name` and a single `### Rendered emails` comment.
+5. Push to a branch and open a pull request; the run should show an artifact named `artifact-name`, a job summary, and a single `### Rendered emails` comment.
 
 ## Working on this repository
 
-- `action.yml` is the single source of truth. When inputs, defaults, or outputs change, update `README.md`, `llms.txt`, this file and `CHANGELOG.md` in the same commit.
-- `fixtures/consumer` and `.github/workflows/fixture-render.yml` exercise both modes via `uses: ./`. The `command` job sets `pr-comment: false` so a PR gets one comment, not two. Keep that.
+- `action.yml` is the single source of truth. When inputs, defaults, or outputs change, update `README.md`, `llms.txt`, this file and `CHANGELOG.md` in the same commit. `python3 tests/check-action.py` fails if an input or output is missing from the README.
+- The logic lives in `scripts/`: `detect-package-manager.sh`, `render.sh` and `pr-comment.js`. Keep the shell compatible with bash 3.2 (macOS) and Git Bash (Windows): no `mapfile`, no namerefs, no bare `"${array[@]}"` on a possibly empty array. Remember that `set -e` is ignored inside a function called from an `if`, so end commands with `|| return 1`.
+- Run the tests before committing: `bash tests/detect-package-manager.test.sh`, `bash tests/render.test.sh`, `node tests/pr-comment.test.js`, `python3 tests/check-action.py`. Add a test with every behaviour change.
+- `fixtures/consumer` and `.github/workflows/fixture-render.yml` exercise every mode via `uses: ./`. Jobs that must not comment set `pr-comment: false` so a PR gets one comment, not several. Keep that.
+- `.github/workflows/ci.yml` lints (yamllint, shellcheck, actionlint) and runs the tests on Linux, macOS and Windows.
+- Every `uses:` in `action.yml` and `.github/workflows/` is pinned to a full commit SHA with a `# vX.Y.Z` comment. `renovate.json` keeps them current. Do not replace a SHA with a tag.
 - `.github/workflows/release.yml` moves the floating major tag (`v1`) when a `vMAJOR.MINOR.PATCH` release is published. Publish releases instead of moving tags by hand.
-- `renovate.json` manages dependency updates for the pinned `actions/*` versions.
-- Do not add a build step or compiled code. The Action is composite YAML plus inline shell and `github-script`.
-- Keep the comment markers in `action.yml` stable: the hidden `<!-- email-template-workflows -->` marker, `### Rendered emails`, and the legacy headings. The update-in-place behavior depends on them.
+- Do not add a build step or compiled code. The Action is composite YAML plus shell scripts and one `github-script` file.
+- Keep the comment markers stable: the hidden `<!-- email-template-workflows -->` marker (keyed runs use `<!-- email-template-workflows:KEY -->`), `### Rendered emails`, and the legacy headings. The update-in-place behavior depends on them.
 
 ## Reference
 

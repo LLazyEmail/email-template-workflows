@@ -1,0 +1,93 @@
+name: CI
+
+# Lints the YAML, shell and workflows, and runs the unit tests for the scripts
+# the Action is built from. The end-to-end checks live in fixture-render.yml.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: yamllint
+        run: pipx run 'yamllint==1.38.0' --format github .
+
+      - name: shellcheck
+        run: |
+          shellcheck --version
+          shellcheck scripts/*.sh tests/*.sh
+
+      - name: actionlint
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/914e7df21a07ef503a81201c76d2b11c789d3fca/scripts/download-actionlint.bash) 1.7.12
+          ./actionlint -color
+
+      - name: Syntax-check the Node scripts
+        run: |
+          node --check scripts/pr-comment.js
+          node --check tests/pr-comment.test.js
+
+  test:
+    name: Unit tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Show tool versions
+        run: |
+          bash --version | head -n 1
+          node --version
+          npm --version
+
+      - name: Package manager detection
+        run: bash tests/detect-package-manager.test.sh
+
+      - name: Render script
+        run: bash tests/render.test.sh
+
+      - name: Pull request comment
+        run: node tests/pr-comment.test.js
+
+      # macOS ships bash 3.2 as /bin/bash, and Homebrew's bash comes first on
+      # PATH on the runners. Put the system bash first to prove the scripts
+      # still run on it.
+      - name: Render script on the system bash 3.2
+        if: ${{ runner.os == 'macOS' }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/system-bash"
+          ln -sf /bin/bash "$RUNNER_TEMP/system-bash/bash"
+          export PATH="$RUNNER_TEMP/system-bash:$PATH"
+          bash --version | head -n 1
+          bash tests/detect-package-manager.test.sh
+          bash tests/render.test.sh

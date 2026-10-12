@@ -3,6 +3,9 @@
   "private": true,
   "scripts": {
     "build-email": "node build-email.js",
+    "build-positional": "node build-positional.js",
+    "build-equals": "node build-equals.js",
+    "build-env": "node build-env.js",
     "render-all": "node render-all.js",
     "validate-email": "node validate-email.js"
   }

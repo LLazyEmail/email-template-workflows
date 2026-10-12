@@ -1,0 +1,36 @@
+# pnpm workspace: the emails live in packages/emails, the lockfile is at the
+# repository root.
+#   * package-manager is detected from the root pnpm-lock.yaml (or the
+#     packageManager field). Set `package-manager: pnpm` to be explicit.
+#   * cache: auto finds that root lockfile for the setup-node cache.
+#   * install-command installs only what the emails package needs.
+#   * prebuild-command builds a shared package the emails import.
+name: Render emails (pnpm workspace)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: LLazyEmail/email-template-workflows@v1
+        with:
+          working-directory: packages/emails
+          cache: auto
+          install-command: pnpm install --frozen-lockfile --filter "@acme/emails..."
+          prebuild-command: pnpm --filter @acme/components build
+          build-script: build-email
+          templates: |
+            src/welcome.md:generated/welcome.html
+            src/invoice.md:generated/invoice.html
+          validate-script: ""
+          artifact-directory: generated
+          artifact-name: rendered-email
