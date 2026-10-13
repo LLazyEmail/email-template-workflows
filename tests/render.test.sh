@@ -212,6 +212,17 @@ assert_contains "build-command failure names the command" "$LOG" "The build-comm
 assert_contains "build-command failure gives command-specific advice" "$LOG" "Does the build-command run on its own"
 
 new_project
+cat > "$PROJ/fail-tsc.js" << 'EOF'
+console.error("scripts/samples/hackernoon/hackernoon-data.ts(1,42): error TS2307: Cannot find module '../../../src/types.js'")
+process.exit(1)
+EOF
+node -e 'const fs=require("fs"); const p=JSON.parse(fs.readFileSync("'"$PROJ"'/package.json","utf8")); p.scripts["fail-tsc"]="node fail-tsc.js"; fs.writeFileSync("'"$PROJ"'/package.json", JSON.stringify(p,null,2));'
+render SINGLE_INPUT=src/newsletter.md SINGLE_OUTPUT=generated/n.html BUILD_SCRIPT=fail-tsc
+assert_eq "tsc-style failure fails the render" 1 "$RC"
+assert_contains "annotation includes the tsc cause" "$LOG" "::error::render failed for src/newsletter.md: scripts/samples/hackernoon/hackernoon-data.ts(1,42): error TS2307: Cannot find module"
+assert_contains "failure block repeats the cause" "$LOG" "Cause:"
+
+new_project
 render SINGLE_INPUT=src/newsletter.md SINGLE_OUTPUT=generated/n.html BUILD_COMMAND='true' VALIDATE_SCRIPT=
 assert_eq "a build that writes nothing fails" 1 "$RC"
 assert_contains "empty output is explained" "$LOG" "::error::empty or missing output"
