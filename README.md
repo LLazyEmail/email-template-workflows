@@ -196,7 +196,7 @@ Your own `env:` on the job is passed through as usual, so secrets such as `NODE_
 
 ## Failure handling
 
-- A template that fails to build, fails validation, or writes an empty file fails the job with an error annotation naming it.
+- A template that fails to build, fails validation, or writes an empty file fails the job with an error annotation naming it. The annotation also includes the first cause line from the command (for example `error TS2307: Cannot find module ...`), and the failure block reprints that cause plus the last lines of the command.
 - With `fail-fast: false` the other templates still render. The artifact, the job summary and the pull request comment are produced, then the job fails. `failed.txt` in the artifact and a **Failed to render** section in the comment list what broke.
 - If every template fails there is nothing to publish and the job fails immediately.
 - An email over `size-limit-kb` produces a warning annotation, not a failure.
