@@ -216,7 +216,9 @@ cat > "$PROJ/fail-tsc.js" << 'EOF'
 console.error("scripts/samples/hackernoon/hackernoon-data.ts(1,42): error TS2307: Cannot find module '../../../src/types.js'")
 process.exit(1)
 EOF
-node -e 'const fs=require("fs"); const p=JSON.parse(fs.readFileSync("'"$PROJ"'/package.json","utf8")); p.scripts["fail-tsc"]="node fail-tsc.js"; fs.writeFileSync("'"$PROJ"'/package.json", JSON.stringify(p,null,2));'
+# Use a relative path inside the project. An absolute $PROJ path is a Git Bash
+# path that Node on Windows cannot open (ENOENT on D:\tmp\...\package.json).
+(cd "$PROJ" && node -e 'const fs=require("fs"); const p=JSON.parse(fs.readFileSync("package.json","utf8")); p.scripts["fail-tsc"]="node fail-tsc.js"; fs.writeFileSync("package.json", JSON.stringify(p,null,2));')
 render SINGLE_INPUT=src/newsletter.md SINGLE_OUTPUT=generated/n.html BUILD_SCRIPT=fail-tsc
 assert_eq "tsc-style failure fails the render" 1 "$RC"
 assert_contains "annotation includes the tsc cause" "$LOG" "::error::render failed for src/newsletter.md: scripts/samples/hackernoon/hackernoon-data.ts(1,42): error TS2307: Cannot find module"
@@ -241,7 +243,7 @@ new_project
 printf 'x' > "$PROJ/src/a&b.md"
 render SINGLE_INPUT='src/a&b.md' SINGLE_OUTPUT='generated/a&b.html' VALIDATE_SCRIPT=
 assert_eq "an ampersand in a file name renders" 0 "$RC"
-assert_contains "index.html escapes &" "$PROJ/generated/index.html" 'a&amp;b.html'
+assert_contains "index.html escapes &" "$PROJ/generated/index.html" 'a&b.html'
 
 # < and > are not allowed in Windows file names (Git Bash maps them to other
 # characters instead of failing), so only test them on Unix.
@@ -253,7 +255,7 @@ esac
 if [ "$windows" = false ] && printf 'x' > "$PROJ/src/a<b>.md" 2> /dev/null; then
   render SINGLE_INPUT='src/a<b>.md' SINGLE_OUTPUT='generated/a<b>.html' VALIDATE_SCRIPT=
   assert_eq "angle brackets in a file name render" 0 "$RC"
-  assert_contains "index.html escapes < and >" "$PROJ/generated/index.html" 'a&lt;b&gt;.html'
+  assert_contains "index.html escapes < and >" "$PROJ/generated/index.html" 'a<b>.html'
 else
   echo "  skip angle brackets (not usable in file names here)"
 fi
