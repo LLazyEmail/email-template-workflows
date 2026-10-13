@@ -64,14 +64,62 @@ trim() {
   printf '%s' "$1" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
 }
 
+# Last failing command's cause line and tail. Set by run_captured.
+FAILURE_CAUSE=""
+FAILURE_TAIL=""
+
+# Pull the most useful line out of a failed command's log.
+# Prefers compiler and module errors over a generic exit line.
+extract_cause() {
+  local file=$1 line
+  line=$(grep -E 'error TS[0-9]+|Cannot find module|ERR_MODULE_NOT_FOUND|SyntaxError|TypeError|^Error:|error:' "$file" | head -1 || true)
+  if [ -z "$line" ]; then
+    line=$(grep -E 'failed|exited' "$file" | head -1 || true)
+  fi
+  # Annotations are one line. Collapse whitespace.
+  printf '%s' "$line" | tr '\n\r' '  ' | sed 's/[[:space:]]\{1,\}/ /g;s/^ //;s/ $//'
+}
+
+# Run a command, stream its output, and keep the cause plus the last lines.
+# Usage: run_captured command [args...]
+run_captured() {
+  local log rc
+  log=$(mktemp)
+  set +e
+  "$@" >"$log" 2>&1
+  rc=$?
+  set -e
+  cat "$log"
+  FAILURE_CAUSE=$(extract_cause "$log")
+  FAILURE_TAIL=$(tail -n 20 "$log")
+  rm -f "$log"
+  return "$rc"
+}
+
 # Print an ::error:: annotation followed by a short block that says what failed
 # and what to check next. $2 may contain \n sequences.
+# When FAILURE_CAUSE is set, it is appended to the annotation so the check
+# summary shows the real error (tsc, missing module, ...) without scrolling.
 explain_failure() {
   local what=$1 detail=$2
+  local annotation=$what
+  if [ -n "$FAILURE_CAUSE" ]; then
+    annotation="$what: $FAILURE_CAUSE"
+  fi
   echo ""
-  echo "::error::${what}"
+  echo "::error::${annotation}"
   echo "----------------------------------------"
   printf '%b\n' "$detail"
+  if [ -n "$FAILURE_CAUSE" ]; then
+    echo ""
+    echo "Cause:"
+    echo "  $FAILURE_CAUSE"
+  fi
+  if [ -n "$FAILURE_TAIL" ]; then
+    echo ""
+    echo "Last lines of the failed command:"
+    printf '%s\n' "$FAILURE_TAIL"
+  fi
   echo "----------------------------------------"
   echo "Common next checks:"
   if [ -n "$BUILD_COMMAND" ]; then
@@ -148,13 +196,15 @@ render_one() {
   local input=$1 output=$2
   FAIL_WHAT=""
   FAIL_DETAIL=""
+  FAILURE_CAUSE=""
+  FAILURE_TAIL=""
   export EMAIL_TEMPLATE_INPUT=$input
   export EMAIL_TEMPLATE_OUTPUT=$output
   if [ -n "$BUILD_COMMAND" ]; then
     echo "  build-command: $BUILD_COMMAND"
-    if ! bash -c "$BUILD_COMMAND"; then
+    if ! run_captured bash -c "$BUILD_COMMAND"; then
       FAIL_WHAT="render failed for $input"
-      FAIL_DETAIL="The build-command exited non-zero while rendering:\n  input:   $input\n  output:  $output\n  command: $BUILD_COMMAND\n\nThe command's own output is above. Fix the command or its dependencies, then re-run."
+      FAIL_DETAIL="The build-command exited non-zero while rendering:\n  input:   $input\n  output:  $output\n  command: $BUILD_COMMAND\n\nThe cause is below. Fix the command or its dependencies, then re-run."
       return 1
     fi
   else
@@ -165,15 +215,15 @@ render_one() {
       ARGS+=("${EXTRA[@]}")
     fi
     echo "  script: $PM run $BUILD_SCRIPT ${ARGS[*]}"
-    if ! run_script "$BUILD_SCRIPT" "${ARGS[@]}"; then
+    if ! run_captured run_script "$BUILD_SCRIPT" "${ARGS[@]}"; then
       FAIL_WHAT="render failed for $input"
-      FAIL_DETAIL="$PM run $BUILD_SCRIPT exited non-zero while rendering:\n  input:  $input\n  output: $output\n\nThe script's own output is above (for example a tsc error, a missing template, or a non-zero exit from the node process). Fix the consumer script or its dependencies, then re-run."
+      FAIL_DETAIL="$PM run $BUILD_SCRIPT exited non-zero while rendering:\n  input:  $input\n  output: $output\n\nThe cause is below (for example a tsc error, a missing template, or a non-zero exit from the node process). Fix the consumer script or its dependencies, then re-run."
       return 1
     fi
   fi
-  if ! validate_one "$output"; then
+  if ! run_captured validate_one "$output"; then
     FAIL_WHAT="validation failed for $output"
-    FAIL_DETAIL="Validation exited non-zero on:\n  $output\n\nCheck the validation output above."
+    FAIL_DETAIL="Validation exited non-zero on:\n  $output\n\nThe cause is below."
     return 1
   fi
   if [ ! -s "$output" ]; then
@@ -196,8 +246,8 @@ if [ -n "$COMMAND" ]; then
     exit 1
   fi
   echo "running command: $COMMAND"
-  if ! bash -c "$COMMAND"; then
-    explain_failure "command mode failed" "The command exited non-zero:\n  $COMMAND\n\nNo HTML was indexed. Check the command output above."
+  if ! run_captured bash -c "$COMMAND"; then
+    explain_failure "command mode failed" "The command exited non-zero:\n  $COMMAND\n\nNo HTML was indexed. The cause is below."
     exit 1
   fi
   outdir=$ARTIFACT_DIRECTORY

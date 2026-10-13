@@ -101,3 +101,6 @@ After adding or editing a caller workflow:
 - Machine-oriented index: `llms.txt`
 - Release notes: `CHANGELOG.md`
 - Real consumer: `LLazyEmail/_playing_with_lit` → `.github/workflows/render-email-action.yml` (explained in `docs/real-world-example.md`)
+
+## Failure annotations
+A non-zero build, validation, or command exits with an `::error::` annotation. The annotation includes the first cause line from the command (for example `error TS2307: Cannot find module ...`), and the failure block reprints that cause plus the last 20 lines.
