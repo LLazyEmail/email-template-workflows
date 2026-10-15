@@ -88,6 +88,7 @@ steps:
 
 ## For AI agents and LLM tools
 
+- [`docs/agent-playbook.md`](docs/agent-playbook.md): start here. Inspect the repository, choose a mode, write the workflow, verify. Copy-paste recipes and a table that maps log messages to fixes.
 - [`llms.txt`](llms.txt): short index of this repository for LLMs.
 - [`AGENTS.md`](AGENTS.md): decision rules, input precedence, gotchas and a verification checklist for agents that add this Action to a repository.
 - [`action.yml`](action.yml): source of truth for inputs, outputs and defaults.

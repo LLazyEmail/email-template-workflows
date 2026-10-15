@@ -16,6 +16,19 @@ Guidance for AI coding agents that work **in** this repository, or that **add th
 
 Current tag to use from other repos: `LLazyEmail/email-template-workflows@v1`.
 
+## Start here
+
+- **Adding this Action to another repository?** Follow [`docs/agent-playbook.md`](docs/agent-playbook.md): inspect the repo, choose a mode, write the workflow, verify. It has copy-paste recipes and a table that maps log messages to fixes.
+- **Changing this repository?** Skip to [Working on this repository](#working-on-this-repository).
+
+The five rules that matter most when adding the Action:
+
+1. Look at the repository first (lockfile, `package.json` scripts, template files, `.npmrc`, existing workflows). Never invent a script, flag, path or input.
+2. Pick one render mode: `command` (one command renders everything), `build-command` (a CLI renders one file; use `$EMAIL_TEMPLATE_INPUT` and `$EMAIL_TEMPLATE_OUTPUT`), or `build-script` (an npm script takes input and output paths).
+3. Set `working-directory` (the default `generated` is rarely right) and `artifact-directory` (where the HTML really is). Paths are relative to `working-directory`.
+4. Pin `@v1`, put `actions/checkout` first, and give every call its own `artifact-name`.
+5. Do not report success until a pull request run shows the artifact, the job summary and a single `### Rendered emails` comment, or say plainly that you could not check.
+
 ## Adding the Action to another repository: decision rules
 
 Follow in order and stop at the first match.
@@ -74,13 +87,7 @@ Outputs: `html-path` (first rendered file), `html-count`, `failed-count`, `artif
 
 ## Verifying a change
 
-After adding or editing a caller workflow:
-
-1. Confirm the workflow YAML is valid and the `uses:` line is `LLazyEmail/email-template-workflows@v1`.
-2. Confirm every package script named in `build-script` (and `validate-script`) exists in the consumer's `package.json`.
-3. Confirm `artifact-directory` matches where the build actually writes.
-4. Confirm permissions match the table above.
-5. Push to a branch and open a pull request; the run should show an artifact named `artifact-name`, a job summary, and a single `### Rendered emails` comment.
+Step 4 of the [playbook](docs/agent-playbook.md#step-4-verify) is the checklist: the YAML parses, the scripts and paths exist, `artifact-directory` matches the build, permissions fit, and a pull request run shows an artifact, a job summary and one `### Rendered emails` comment.
 
 ## Working on this repository
 

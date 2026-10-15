@@ -4,6 +4,11 @@ All notable changes to `LLazyEmail/email-template-workflows` are listed here.
 
 ## [Unreleased]
 
+### Added (agent documentation)
+- `docs/agent-playbook.md`: a step-by-step procedure for AI agents that add the Action to a repository (inspect, choose a mode, write the workflow, verify), a decision flowchart, eleven recipes, a table that maps log messages to fixes, and hard rules.
+- `AGENTS.md` now opens with a "Start here" section and the five rules that matter most.
+- `tests/check-action.py` checks every YAML snippet in the README and the playbook: it must parse, and any call to this Action may only use inputs that exist in `action.yml`. It also checks that relative links in the docs point at files that exist.
+
 ### Added (universal support)
 - Package managers: `package-manager` (`auto`, `npm`, `yarn`, `pnpm`, `bun`) and `package-manager-version`. `auto` reads the `packageManager` field, then the lockfile in `working-directory` and its parents (monorepos), then falls back to npm. yarn and pnpm run through Corepack, bun through `oven-sh/setup-bun`.
 - `build-command` and `validate-command`: run any tool once per template, with `EMAIL_TEMPLATE_INPUT` and `EMAIL_TEMPLATE_OUTPUT` set. These variables are now set for `build-script` and `validate-script` too.
