@@ -5,6 +5,9 @@ on:
     paths:
       - action.yml
       - README.md
+      - AGENTS.md
+      - llms.txt
+      - docs/**
       - scripts/**
       - tests/check-action.py
       - .github/workflows/**
@@ -13,6 +16,9 @@ on:
     paths:
       - action.yml
       - README.md
+      - AGENTS.md
+      - llms.txt
+      - docs/**
       - scripts/**
       - tests/check-action.py
       - .github/workflows/**

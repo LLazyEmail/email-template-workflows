@@ -279,7 +279,11 @@ Set `pr-comment: false`. The job summary and the artifact still list everything.
 
 ## When something goes wrong
 
-Match the message in the log, then apply the fix.
+**Read the failure annotation first.** On a failed render, validation or command, the run page shows an `::error::` annotation, for example `render failed for src/welcome.md: error TS2307: Cannot find module './footer'`. The text after the colon is the first cause line from your build's own output. Below it, in the log, the failure block repeats the cause and the last 20 lines of the command, then lists what to check next. Fix that cause before anything else.
+
+How to read a failed run without a browser: `gh run view <run-id> --log-failed`, or the check-run annotations through `gh api repos/{owner}/{repo}/check-runs/{id}/annotations`.
+
+Then match the message, and apply the fix.
 
 | You see | Cause | Fix |
 | --- | --- | --- |
@@ -288,8 +292,8 @@ Match the message in the log, then apply the fix.
 | `artifact-directory not found` | the command did not create that folder, or the path is relative to the wrong place | `artifact-directory` is relative to `working-directory`; fix the path or the command |
 | `build-script not found` | the script is not in the `package.json` at `working-directory` | add the script, fix `build-script`, fix `working-directory`, or use `build-command` or `command` |
 | `invalid template line` | a `templates` line is not `input:output`, the two are equal, or a path contains a colon | one `input:output` per line, different paths, no colons in paths |
-| `render failed for <input>` | the build exited non-zero | the build's own output is just above the error; run the same command locally |
-| `validation failed for <output>` | the validate script or command exited non-zero | fix the HTML, or set `validate-script: ""` if the project has no real validator |
+| `render failed for <input>: <cause>` | the build exited non-zero; `<cause>` is its first error line (a TypeScript error, a missing module, a syntax error) | fix that cause; run the same command locally to reproduce it |
+| `validation failed for <output>: <cause>` | the validate script or command exited non-zero | fix what the cause names, or set `validate-script: ""` if the project has no real validator |
 | `empty or missing output` | the build exited 0 but wrote nothing at the output path | the build ignores the output argument or writes elsewhere; check `output-flag`, or use `build-command` with `$EMAIL_TEMPLATE_OUTPUT` |
 | `No templates rendered` | nothing was selected to render | set `command`, `templates`, or `input` and `output` |
 | warning `validate-script 'validate-email' is not defined` | the default validate script is missing | harmless; set `validate-script: ""` to silence it |

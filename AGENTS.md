@@ -110,4 +110,5 @@ Step 4 of the [playbook](docs/agent-playbook.md#step-4-verify) is the checklist:
 - Real consumer: `LLazyEmail/_playing_with_lit` → `.github/workflows/render-email-action.yml` (explained in `docs/real-world-example.md`)
 
 ## Failure annotations
-A non-zero build, validation, or command exits with an `::error::` annotation. The annotation includes the first cause line from the command (for example `error TS2307: Cannot find module ...`), and the failure block reprints that cause plus the last 20 lines.
+
+A non-zero build, validation or command exits with an `::error::` annotation. The annotation includes the first cause line from the command (for example `error TS2307: Cannot find module ...`), and the failure block reprints that cause plus the last 20 lines. The playbook's [troubleshooting table](docs/agent-playbook.md#when-something-goes-wrong) maps each message to a fix.

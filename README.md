@@ -208,7 +208,7 @@ Your own `env:` on the job is passed through as usual, so secrets such as `NODE_
 bash tests/detect-package-manager.test.sh   # package manager, lockfile and cache resolution
 bash tests/render.test.sh                   # every render mode, with each installed package manager
 node tests/pr-comment.test.js               # the pull request comment, with a mocked GitHub client
-python3 tests/check-action.py               # action.yml, README and pinned actions stay in sync
+python3 tests/check-action.py               # action.yml, docs, snippets, links and pinned actions stay in sync
 ```
 
 CI runs these on Linux, macOS (including the system bash 3.2) and Windows, lints the YAML, shell scripts and workflows (`yamllint`, `shellcheck`, `actionlint`), and renders `fixtures/consumer` through `uses: ./` with each package manager. `.github/workflows/fixture-render.yml` has one job per capability.
