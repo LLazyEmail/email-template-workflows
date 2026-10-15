@@ -88,6 +88,7 @@ steps:
 
 ## For AI agents and LLM tools
 
+- [`docs/agent-playbook.md`](docs/agent-playbook.md): start here. Inspect the repository, choose a mode, write the workflow, verify. Copy-paste recipes and a table that maps log messages to fixes.
 - [`llms.txt`](llms.txt): short index of this repository for LLMs.
 - [`AGENTS.md`](AGENTS.md): decision rules, input precedence, gotchas and a verification checklist for agents that add this Action to a repository.
 - [`action.yml`](action.yml): source of truth for inputs, outputs and defaults.
@@ -207,7 +208,7 @@ Your own `env:` on the job is passed through as usual, so secrets such as `NODE_
 bash tests/detect-package-manager.test.sh   # package manager, lockfile and cache resolution
 bash tests/render.test.sh                   # every render mode, with each installed package manager
 node tests/pr-comment.test.js               # the pull request comment, with a mocked GitHub client
-python3 tests/check-action.py               # action.yml, README and pinned actions stay in sync
+python3 tests/check-action.py               # action.yml, docs, snippets, links and pinned actions stay in sync
 ```
 
 CI runs these on Linux, macOS (including the system bash 3.2) and Windows, lints the YAML, shell scripts and workflows (`yamllint`, `shellcheck`, `actionlint`), and renders `fixtures/consumer` through `uses: ./` with each package manager. `.github/workflows/fixture-render.yml` has one job per capability.
