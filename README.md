@@ -74,6 +74,7 @@ steps:
 | Two sets of emails in one pull request | `comment-key` | Each key gets its own comment. |
 | No pull request (schedule, push) | `pr-comment: false` | The job summary and the artifact still list everything. |
 | Gmail clipping | `size-limit-kb` | Warns when an email is over 102 KB (the default). |
+| Non-email projects | `product-name` | Defaults to `emails`. Set to e.g. `docs` or `components` so headings and comments match your project. |
 
 ## Real-world example
 
@@ -114,7 +115,7 @@ steps:
 
 The artifact is a directory; the comment links the run and tells you to open `index.html`. `index.html` lists every rendered file with its size.
 
-The comment heading is `### Rendered emails`. A later run updates the existing bot comment instead of adding another one. It also replaces an older `### Sandbox HTML` or fixture comment. With `comment-key` the heading is `### Rendered emails (<key>)` and each key is tracked separately.
+The comment heading is `### Rendered emails` (or `### Rendered <product-name>`). A later run updates the existing bot comment instead of adding another one. It also replaces an older `### Sandbox HTML` or fixture comment. With `comment-key` the heading is `### Rendered emails (<key>)` and each key is tracked separately. Override the whole heading with `comment-heading`.
 
 ## Inputs
 
@@ -172,6 +173,8 @@ Set `command`, or `templates`, or both `input` and `output`. The action writes `
 | `job-summary` | no | `true` | Write the rendered files and their sizes to the job summary. Needs no token permission. |
 | `pr-comment` | no | `true` | Post or update the pull request comment. No-op unless the event is `pull_request`. Skipped for forks. A read-only token logs a warning instead of failing. |
 | `comment-key` | no | empty | Gives this call its own comment, so several calls in one pull request do not overwrite each other. |
+| `product-name` | no | `emails` | Human-readable name used in the index title, job summary, and PR comment. Defaults keep existing email behavior. |
+| `comment-heading` | no | empty | Full override of the PR comment heading. Empty uses `### Rendered <product-name>`. |
 
 ## Outputs
 
