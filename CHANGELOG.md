@@ -5,6 +5,7 @@ All notable changes to `LLazyEmail/email-template-workflows` are listed here.
 ## [Unreleased]
 
 ### Added
+- `zip-artifact` input (default `false`): when true, packs the rendered directory into a zip named after `artifact-name` before upload. The zip sits inside the artifact so both the browsable files and a single downloadable archive are available. Useful for a later online-editor "download zip" flow and for consumers that prefer an archive.
 - `product-name` input (default `emails`): used in index.html title, job summary heading, and PR comment so non-email projects can adopt the action without email-specific language. Existing users see no change.
 - `comment-heading` input: optional full override of the PR comment heading.
 
