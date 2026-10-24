@@ -31,6 +31,8 @@ WORKDIR=${WORKDIR:-.}
 FAIL_FAST=${FAIL_FAST:-true}
 SIZE_LIMIT_KB=${SIZE_LIMIT_KB:-102}
 JOB_SUMMARY=${JOB_SUMMARY:-true}
+PRODUCT_NAME=${PRODUCT_NAME:-emails}
+COMMENT_HEADING=${COMMENT_HEADING:-}
 OUT=${GITHUB_OUTPUT:-/dev/null}
 SUMMARY=${GITHUB_STEP_SUMMARY:-/dev/null}
 
@@ -57,7 +59,7 @@ rel() {
 }
 
 esc() {
-  sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g'
+  sed -e 's/&/\&/g' -e 's/</\</g' -e 's/>/\>/g' -e 's/"/\"/g'
 }
 
 trim() {
@@ -330,13 +332,16 @@ for f in "${rendered[@]}"; do
   bytes=$(wc -c < "$f" | tr -d '[:space:]')
   sizes+=("$bytes")
   if [ "$SIZE_LIMIT_KB" -gt 0 ] && [ "$bytes" -gt $((SIZE_LIMIT_KB * 1024)) ]; then
-    echo "::warning file=$WORKDIR/$f,title=Email may be clipped::$f is $(size_kb "$bytes") KB, over the size-limit-kb of $SIZE_LIMIT_KB KB. Gmail clips messages larger than about 102 KB."
+    echo "::warning file=$WORKDIR/$f,title=Size limit::$f is $(size_kb "$bytes") KB, over the size-limit-kb of $SIZE_LIMIT_KB KB."
   fi
 done
 
+heading_text="${COMMENT_HEADING:-### Rendered $PRODUCT_NAME}"
+index_title="Rendered $PRODUCT_NAME"
+
 {
-  echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rendered emails</title></head><body>'
-  echo '<h1>Rendered emails</h1>'
+  echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'"$index_title"'</title></head><body>'
+  echo "<h1>$index_title</h1>"
   echo '<ul>'
   i=0
   for f in "${rendered[@]}"; do
@@ -365,10 +370,10 @@ fi
 
 if [ "$JOB_SUMMARY" = "true" ]; then
   {
+    echo "$heading_text"
     if [ -n "$ARTIFACT_NAME" ]; then
-      echo "### Rendered emails (\`$ARTIFACT_NAME\`)"
-    else
-      echo "### Rendered emails"
+      echo
+      echo "Artifact: \`$ARTIFACT_NAME\`"
     fi
     echo
     echo "| File | Size |"
