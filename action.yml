@@ -1,1 +1,364 @@
-PLACEHOLDER_TO_BE_REPLACED
+name: Render Email Template
+description: Build and render one or more email templates into static HTML, with any package manager or build tool
+
+branding:
+  icon: mail
+  color: blue
+
+inputs:
+  # --- What to render -------------------------------------------------------
+  input:
+    description: Path to a single source file, relative to working-directory. Ignored when templates or command is set.
+    required: false
+    default: ""
+  output:
+    description: Path to save a single compiled HTML file, relative to working-directory. Ignored when templates or command is set.
+    required: false
+    default: ""
+  templates:
+    description: |
+      One template per line, as input:output, both relative to working-directory.
+      Blank lines and lines starting with # are skipped. Paths must not contain a colon.
+      Example:
+        src/welcome.md:generated/welcome.html
+        src/invoice.md:generated/invoice.html
+      When set, input and output are ignored. Ignored when command is set.
+    required: false
+    default: ""
+  command:
+    description: |
+      Command mode. Shell command run after install, instead of rendering template by template.
+      Use it for a catalog engine, for example `npx generate-template --all --out=generated` or `npm run sandbox`.
+      Set artifact-directory to the folder the command writes. Overrides templates, input, output,
+      build-command, build-script, validate-command, validate-script and extra-args.
+    required: false
+    default: ""
+
+  # --- How to render each template -----------------------------------------
+  build-command:
+    description: |
+      Shell command run once per template, for any tool (MJML, Maizzle, pandoc, a Python script...).
+      The paths are available as $EMAIL_TEMPLATE_INPUT and $EMAIL_TEMPLATE_OUTPUT.
+      Example: `npx mjml \"$EMAIL_TEMPLATE_INPUT\" -o \"$EMAIL_TEMPLATE_OUTPUT\"`.
+      Takes precedence over build-script. Ignored when command is set.
+    required: false
+    default: ""
+  build-script:
+    description: package.json script that compiles one email. Called with the input, output and extra-args. Ignored when command or build-command is set.
+    required: false
+    default: build-email
+  input-flag:
+    description: |
+      How the input path is passed to build-script. `--input` passes `--input <path>`, `--input=` passes `--input=<path>`,
+      empty passes the path as a positional argument. $EMAIL_TEMPLATE_INPUT is always set as well.
+    required: false
+    default: --input
+  output-flag:
+    description: How the output path is passed to build-script. Same styles as input-flag. $EMAIL_TEMPLATE_OUTPUT is always set as well.
+    required: false
+    default: --output
+  extra-args:
+    description: Extra arguments appended after the input and output for every template. Split on whitespace; do not put values with spaces in it. Applies to build-script only.
+    required: false
+    default: ""
+  validate-command:
+    description: Shell command run after each template is built, with $EMAIL_TEMPLATE_OUTPUT set. A non-zero exit fails that template. Takes precedence over validate-script. Ignored when command is set.
+    required: false
+    default: ""
+  validate-script:
+    description: package.json script that validates one compiled HTML file. Set empty to skip. If the script is not defined in package.json, validation is skipped with a warning. Ignored when command or validate-command is set.
+    required: false
+    default: validate-email
+  validate-flag:
+    description: How the compiled file is passed to validate-script. Same styles as input-flag.
+    required: false
+    default: --file
+  fail-fast:
+    description: With `true`, the first template that fails stops the job. With `false`, the remaining templates still render, the artifact and comment are produced, and the job fails at the end.
+    required: false
+    default: "true"
+  size-limit-kb:
+    description: Warn when a rendered email is larger than this many kilobytes. Gmail clips messages over about 102 KB. Set 0 to disable.
+    required: false
+    default: "102"
+
+  # --- Where and with what to run -------------------------------------------
+  working-directory:
+    description: Directory that contains package.json, relative to the workspace. Every path input is relative to it. The default is the generated output folder, which is rarely what you want; use `.` for a repository root.
+    required: false
+    default: generated
+  package-manager:
+    description: |
+      Package manager used to install dependencies and run scripts: `auto`, `npm`, `yarn`, `pnpm` or `bun`.
+      `auto` reads the packageManager field of package.json, then looks for a lockfile in working-directory and its parents,
+      then falls back to npm. yarn and pnpm are activated through Corepack; bun through oven-sh/setup-bun.
+    required: false
+    default: auto
+  package-manager-version:
+    description: Version of the package manager to activate, for example `9.15.0` for pnpm or `1.2.0` for bun. Empty uses the packageManager field of package.json, or the latest.
+    required: false
+    default: ""
+  install-command:
+    description: Command that installs dependencies in working-directory. Empty runs `<package-manager> install`. Use `npm ci`, `pnpm install --frozen-lockfile` or `yarn install --immutable` to enforce the lockfile.
+    required: false
+    default: ""
+  skip-install:
+    description: Set to `true` to skip dependency installation, for example when the build has no dependencies or they were restored earlier.
+    required: false
+    default: "false"
+  prebuild-command:
+    description: Shell command run in working-directory after install and before anything is rendered, for example `npm run build:components`. Runs in every render mode.
+    required: false
+    default: ""
+  setup-node:
+    description: Set to `false` to skip actions/setup-node and use the Node.js already on the runner. Node.js must be on PATH either way, because the action uses it to index the output.
+    required: false
+    default: "true"
+  node-version:
+    description: Node.js version to install on the runner. Ignored when node-version-file is set.
+    required: false
+    default: "24"
+  node-version-file:
+    description: File that holds the Node.js version, for example `.nvmrc`, `.node-version` or `.tool-versions`. Relative to the workspace root, not to working-directory. Takes precedence over node-version.
+    required: false
+    default: ""
+  cache:
+    description: setup-node cache mode (`npm`, `yarn`, `pnpm`), or `auto` to follow the detected package manager when a lockfile exists. Empty disables caching, so a missing lockfile cannot fail the job.
+    required: false
+    default: ""
+  registry-url:
+    description: npm registry to configure for the install, for example `https://npm.pkg.github.com`. Authenticate with NODE_AUTH_TOKEN in the caller's env.
+    required: false
+    default: ""
+  registry-scope:
+    description: Scope to authenticate against registry-url, for example `@my-org`. Defaults to the repository owner for GitHub Packages.
+    required: false
+    default: ""
+
+  # --- What to publish ------------------------------------------------------
+  upload-artifact:
+    description: Upload the rendered HTML (plus index.html) as a workflow artifact
+    required: false
+    default: "true"
+  artifact-name:
+    description: Name of the uploaded artifact. Must be unique within a workflow run, so give each matrix job its own.
+    required: false
+    default: rendered-email
+  artifact-directory:
+    description: Directory to index and upload, relative to working-directory. Empty uses the directory of the first rendered file. Required when command is set.
+    required: false
+    default: ""
+  retention-days:
+    description: Days to keep the uploaded artifact
+    required: false
+    default: "14"
+  job-summary:
+    description: Write the list of rendered files and their sizes to the job summary. Needs no token permissions, so it also works for forks, Dependabot and non-pull-request events.
+    required: false
+    default: "true"
+  pr-comment:
+    description: On pull_request, post or update a comment listing the rendered files. The caller job needs pull-requests write. Skipped for pull requests from forks. If the token is read-only (Dependabot, for example), a warning is logged instead of failing the job.
+    required: false
+    default: "true"
+  comment-key:
+    description: Optional label that gives this call its own comment, so two calls in one pull request (for example marketing and transactional emails) do not overwrite each other. Empty uses the shared comment.
+    required: false
+    default: ""
+  product-name:
+    description: Human-readable name for what is being rendered (used in headings, index title, and comments). Defaults to "emails" so existing users see no change.
+    required: false
+    default: "emails"
+  comment-heading:
+    description: Override the pull request comment heading. Empty uses "### Rendered <product-name>".
+    required: false
+    default: ""
+
+  zip-artifact:
+    description: |
+      When true, pack the artifact directory into a zip (named from artifact-name) before upload.
+      The zip is placed inside the directory so the uploaded artifact contains both the files and the archive.
+      Useful for a later "download zip" flow or for consumers that prefer a single archive.
+    required: false
+    default: "false"
+
+outputs:
+  html-path:
+    description: Path to the first generated HTML file, relative to the workspace
+    value: ${{ steps.render.outputs.html-path }}
+  html-count:
+    description: Number of HTML files rendered
+    value: ${{ steps.render.outputs.html-count }}
+  failed-count:
+    description: Number of templates that failed to render. Always 0 unless fail-fast is false.
+    value: ${{ steps.render.outputs.failed-count }}
+  artifact-dir:
+    description: Directory that was indexed and uploaded, relative to the workspace
+    value: ${{ steps.render.outputs.artifact-dir }}
+  artifact-url:
+    description: URL of the uploaded artifact. Empty when upload-artifact is not true.
+    value: ${{ steps.upload.outputs.artifact-url }}
+  package-manager:
+    description: The package manager that was used (npm, yarn, pnpm or bun)
+    value: ${{ steps.pm.outputs.name }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Detect package manager
+      id: pm
+      shell: bash
+      env:
+        WORKDIR: ${{ inputs.working-directory }}
+        PM_INPUT: ${{ inputs.package-manager }}
+        CACHE_INPUT: ${{ inputs.cache }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/detect-package-manager.sh"
+
+    # Corepack must be on before setup-node when it caches yarn or pnpm, because
+    # setup-node asks the package manager for its cache folder.
+    - name: Enable Corepack
+      if: ${{ steps.pm.outputs.corepack == 'true' }}
+      shell: bash
+      run: |
+        if command -v corepack > /dev/null 2>&1; then
+          corepack enable
+        fi
+
+    - name: Set up Bun
+      if: ${{ steps.pm.outputs.name == 'bun' }}
+      uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      with:
+        bun-version: ${{ inputs.package-manager-version || 'latest' }}
+
+    - name: Set up Node.js
+      if: ${{ inputs.setup-node == 'true' }}
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: ${{ inputs.node-version-file == '' && inputs.node-version || '' }}
+        node-version-file: ${{ inputs.node-version-file }}
+        cache: ${{ steps.pm.outputs.cache }}
+        cache-dependency-path: ${{ steps.pm.outputs.cache-dependency-path }}
+        # The cache input above is the only switch. Without this, setup-node
+        # turns npm caching on by itself when package.json has a packageManager
+        # field, and fails if there is no lockfile.
+        package-manager-cache: false
+        registry-url: ${{ inputs.registry-url }}
+        scope: ${{ inputs.registry-scope }}
+
+    - name: Activate package manager
+      if: ${{ steps.pm.outputs.corepack == 'true' }}
+      shell: bash
+      env:
+        PM: ${{ steps.pm.outputs.name }}
+        PM_VERSION: ${{ inputs.package-manager-version }}
+      run: |
+        set -euo pipefail
+        if ! command -v corepack > /dev/null 2>&1; then
+          # Node.js 25 and later no longer ship Corepack.
+          npm install --global corepack
+        fi
+        corepack enable
+        if [ -n \"$PM_VERSION\" ]; then
+          corepack prepare \"$PM@$PM_VERSION\" --activate
+        fi
+
+    - name: Install dependencies
+      if: ${{ inputs.skip-install != 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        PM: ${{ steps.pm.outputs.name }}
+        INSTALL_COMMAND: ${{ inputs.install-command }}
+      run: |
+        set -euo pipefail
+        cmd=$INSTALL_COMMAND
+        if [ -z \"$cmd\" ]; then
+          cmd=\"$PM install\"
+        fi
+        echo \"install: $cmd\"
+        bash -c \"$cmd\"
+
+    - name: Run prebuild command
+      if: ${{ inputs.prebuild-command != '' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        PREBUILD_COMMAND: ${{ inputs.prebuild-command }}
+      run: |
+        set -euo pipefail
+        echo \"prebuild: $PREBUILD_COMMAND\"
+        bash -c \"$PREBUILD_COMMAND\"
+
+    - name: Render templates
+      id: render
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        PM: ${{ steps.pm.outputs.name }}
+        COMMAND: ${{ inputs.command }}
+        BUILD_COMMAND: ${{ inputs.build-command }}
+        BUILD_SCRIPT: ${{ inputs.build-script }}
+        VALIDATE_COMMAND: ${{ inputs.validate-command }}
+        VALIDATE_SCRIPT: ${{ inputs.validate-script }}
+        TEMPLATES: ${{ inputs.templates }}
+        SINGLE_INPUT: ${{ inputs.input }}
+        SINGLE_OUTPUT: ${{ inputs.output }}
+        EXTRA_ARGS: ${{ inputs.extra-args }}
+        INPUT_FLAG: ${{ inputs.input-flag }}
+        OUTPUT_FLAG: ${{ inputs.output-flag }}
+        VALIDATE_FLAG: ${{ inputs.validate-flag }}
+        ARTIFACT_DIRECTORY: ${{ inputs.artifact-directory }}
+        ARTIFACT_NAME: ${{ inputs.artifact-name }}
+        WORKDIR: ${{ inputs.working-directory }}
+        FAIL_FAST: ${{ inputs.fail-fast }}
+        SIZE_LIMIT_KB: ${{ inputs.size-limit-kb }}
+        JOB_SUMMARY: ${{ inputs.job-summary }}
+        PRODUCT_NAME: ${{ inputs.product-name }}
+        COMMENT_HEADING: ${{ inputs.comment-heading }}
+      run: bash \"$GITHUB_ACTION_PATH/scripts/render.sh\"
+
+    - name: Zip the artifact
+      if: ${{ inputs.zip-artifact == 'true' }}
+      shell: bash
+      env:
+        ARTIFACT_DIR: ${{ steps.render.outputs.artifact-dir }}
+        ZIP_NAME: ${{ inputs.artifact-name }}
+      run: bash \"$GITHUB_ACTION_PATH/scripts/zip-artifact.sh\"
+
+    - name: Upload rendered emails
+      if: ${{ inputs.upload-artifact == 'true' }}
+      id: upload
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ steps.render.outputs.artifact-dir }}
+        if-no-files-found: error
+        retention-days: ${{ inputs.retention-days }}
+
+    - name: Comment on the pull request
+      if: ${{ (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.pr-comment == 'true' && github.event.pull_request.head.repo.full_name == github.repository }}
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        ARTIFACT_DIR: ${{ steps.render.outputs.artifact-dir }}
+        ARTIFACT_NAME: ${{ inputs.artifact-name }}
+        ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        UPLOAD_ARTIFACT: ${{ inputs.upload-artifact }}
+        COMMENT_KEY: ${{ inputs.comment-key }}
+        PRODUCT_NAME: ${{ inputs.product-name }}
+        COMMENT_HEADING: ${{ inputs.comment-heading }}
+      with:
+        script: |
+          const path = require('path');
+          const comment = require(path.join(process.env.ACTION_PATH, 'scripts', 'pr-comment.js'));
+          await comment({ github, context, core });
+
+    # With fail-fast: false the render step succeeds so the artifact and the
+    # comment are still produced. The job is failed here, at the very end.
+    - name: Fail if any template failed
+      if: ${{ steps.render.outputs.failed-count != '' && steps.render.outputs.failed-count != '0' }}
+      shell: bash
+      env:
+        FAILED_COUNT: ${{ steps.render.outputs.failed-count }}
+      run: |
+        echo \"::error::$FAILED_COUNT template(s) failed to render. The others were uploaded; failed.txt in the artifact lists the failures.\"
+        exit 1
