@@ -59,8 +59,9 @@ rel() {
 }
 
 esc() {
-  # Node avoids sed's special meaning of & in the replacement.
-  node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>console.log(s.replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">").replace(/"/g,""").replace(/\n$/,"")))'
+  # Build HTML entities at runtime so the source never contains the literal entities
+  # (avoids tools that unescape & etc. when the file is written).
+  node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const a=String.fromCharCode(38);console.log(s.replace(/&/g,a+"amp;").replace(/</g,a+"lt;").replace(/>/g,a+"gt;").replace(/"/g,a+"quot;").replace(/\n$/,""))})'
 }
 
 trim() {
