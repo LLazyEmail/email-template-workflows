@@ -1,6 +1,6 @@
 'use strict';
 
-// Posts or updates the "Rendered emails" pull request comment.
+// Posts or updates the pull request comment.
 // Loaded by actions/github-script from action.yml; also unit-tested in
 // tests/pr-comment.test.js with a mocked GitHub client.
 
@@ -46,19 +46,20 @@ function bullets(lines) {
   return shown;
 }
 
-function buildBody({ key, rendered, failed, runUrl, artifactName, artifactUrl, uploaded }) {
+function buildBody({ key, rendered, failed, runUrl, artifactName, artifactUrl, uploaded, productName = 'emails', commentHeading }) {
   const marker = key ? `${MARKER_PREFIX}:${key} -->` : `${MARKER_PREFIX} -->`;
-  const heading = key ? `### Rendered emails (${key})` : '### Rendered emails';
+  const heading = commentHeading || (key ? `### Rendered ${productName} (${key})` : `### Rendered ${productName}`);
   const artifactLine = artifactUrl
     ? `- Artifact: [\`${artifactName}\`](${artifactUrl})`
     : `- Artifact: \`${artifactName}\``;
+  const intro = failed.length > 0
+    ? `This PR rendered ${productName}, but some of them failed.`
+    : `This PR rendered ${productName}.`;
   return [
     marker,
     heading,
     '',
-    failed.length > 0
-      ? 'This PR rendered email templates, but some of them failed.'
-      : 'This PR rendered email templates.',
+    intro,
     '',
     ...bullets(rendered),
     ...(failed.length > 0 ? ['', '**Failed to render:**', ...bullets(failed)] : []),
@@ -73,6 +74,8 @@ async function run({ github, context, core, env = process.env }) {
   const marker = key ? `${MARKER_PREFIX}:${key} -->` : `${MARKER_PREFIX} -->`;
   const artifactDir = env.ARTIFACT_DIR;
   const runUrl = `${env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+  const productName = env.PRODUCT_NAME || 'emails';
+  const commentHeading = env.COMMENT_HEADING || '';
 
   const body = buildBody({
     key,
@@ -82,6 +85,8 @@ async function run({ github, context, core, env = process.env }) {
     artifactName: env.ARTIFACT_NAME,
     artifactUrl: env.ARTIFACT_URL,
     uploaded: env.UPLOAD_ARTIFACT === 'true',
+    productName,
+    commentHeading,
   });
 
   const issueNumber = context.payload.pull_request.number;
