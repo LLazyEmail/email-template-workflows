@@ -31,6 +31,8 @@ WORKDIR=${WORKDIR:-.}
 FAIL_FAST=${FAIL_FAST:-true}
 SIZE_LIMIT_KB=${SIZE_LIMIT_KB:-102}
 JOB_SUMMARY=${JOB_SUMMARY:-true}
+PRODUCT_NAME=${PRODUCT_NAME:-emails}
+COMMENT_HEADING=${COMMENT_HEADING:-}
 OUT=${GITHUB_OUTPUT:-/dev/null}
 SUMMARY=${GITHUB_STEP_SUMMARY:-/dev/null}
 
@@ -57,7 +59,9 @@ rel() {
 }
 
 esc() {
-  sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g'
+  # Build HTML entities at runtime so the source never contains the literal entities
+  # (avoids tools that unescape & etc. when the file is written).
+  node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const a=String.fromCharCode(38);console.log(s.replace(/&/g,a+"amp;").replace(/</g,a+"lt;").replace(/>/g,a+"gt;").replace(/"/g,a+"quot;").replace(/\n$/,""))})'
 }
 
 trim() {
@@ -334,9 +338,12 @@ for f in "${rendered[@]}"; do
   fi
 done
 
+heading_text="${COMMENT_HEADING:-### Rendered $PRODUCT_NAME}"
+index_title="Rendered $PRODUCT_NAME"
+
 {
-  echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rendered emails</title></head><body>'
-  echo '<h1>Rendered emails</h1>'
+  echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'"$index_title"'</title></head><body>'
+  echo "<h1>$index_title</h1>"
   echo '<ul>'
   i=0
   for f in "${rendered[@]}"; do
@@ -365,10 +372,10 @@ fi
 
 if [ "$JOB_SUMMARY" = "true" ]; then
   {
+    echo "$heading_text"
     if [ -n "$ARTIFACT_NAME" ]; then
-      echo "### Rendered emails (\`$ARTIFACT_NAME\`)"
-    else
-      echo "### Rendered emails"
+      echo
+      echo "Artifact: \`$ARTIFACT_NAME\`"
     fi
     echo
     echo "| File | Size |"

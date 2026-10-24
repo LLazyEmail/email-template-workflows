@@ -4,6 +4,10 @@ All notable changes to `LLazyEmail/email-template-workflows` are listed here.
 
 ## [Unreleased]
 
+### Added
+- `product-name` input (default `emails`): used in index.html title, job summary heading, and PR comment so non-email projects can adopt the action without email-specific language. Existing users see no change.
+- `comment-heading` input: optional full override of the PR comment heading.
+
 ### Added (agent documentation)
 - `docs/agent-playbook.md`: a step-by-step procedure for AI agents that add the Action to a repository (inspect, choose a mode, write the workflow, verify), a decision flowchart, eleven recipes, a table that maps log messages to fixes, and hard rules.
 - `AGENTS.md` now opens with a "Start here" section and the five rules that matter most.

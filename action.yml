@@ -164,6 +164,14 @@ inputs:
     description: Optional label that gives this call its own comment, so two calls in one pull request (for example marketing and transactional emails) do not overwrite each other. Empty uses the shared comment.
     required: false
     default: ""
+  product-name:
+    description: Human-readable name for what is being rendered (used in headings, index title, and comments). Defaults to "emails" so existing users see no change.
+    required: false
+    default: "emails"
+  comment-heading:
+    description: Override the pull request comment heading. Empty uses "### Rendered <product-name>".
+    required: false
+    default: ""
 
 outputs:
   html-path:
@@ -296,6 +304,8 @@ runs:
         FAIL_FAST: ${{ inputs.fail-fast }}
         SIZE_LIMIT_KB: ${{ inputs.size-limit-kb }}
         JOB_SUMMARY: ${{ inputs.job-summary }}
+        PRODUCT_NAME: ${{ inputs.product-name }}
+        COMMENT_HEADING: ${{ inputs.comment-heading }}
       run: bash "$GITHUB_ACTION_PATH/scripts/render.sh"
 
     - name: Upload rendered emails
@@ -318,6 +328,8 @@ runs:
         ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
         UPLOAD_ARTIFACT: ${{ inputs.upload-artifact }}
         COMMENT_KEY: ${{ inputs.comment-key }}
+        PRODUCT_NAME: ${{ inputs.product-name }}
+        COMMENT_HEADING: ${{ inputs.comment-heading }}
       with:
         script: |
           const path = require('path');
