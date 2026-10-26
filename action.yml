@@ -173,6 +173,14 @@ inputs:
     required: false
     default: ""
 
+  zip-artifact:
+    description: |
+      When true, pack the artifact directory into a zip (named from artifact-name) before upload.
+      The zip is placed inside the directory so the uploaded artifact contains both the files and the archive.
+      Useful for a later "download zip" flow or for consumers that prefer a single archive.
+    required: false
+    default: "false"
+
 outputs:
   html-path:
     description: Path to the first generated HTML file, relative to the workspace
@@ -307,6 +315,14 @@ runs:
         PRODUCT_NAME: ${{ inputs.product-name }}
         COMMENT_HEADING: ${{ inputs.comment-heading }}
       run: bash "$GITHUB_ACTION_PATH/scripts/render.sh"
+
+    - name: Zip the artifact
+      if: ${{ inputs.zip-artifact == 'true' }}
+      shell: bash
+      env:
+        ARTIFACT_DIR: ${{ steps.render.outputs.artifact-dir }}
+        ZIP_NAME: ${{ inputs.artifact-name }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/zip-artifact.sh"
 
     - name: Upload rendered emails
       if: ${{ inputs.upload-artifact == 'true' }}

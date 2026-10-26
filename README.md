@@ -75,6 +75,7 @@ steps:
 | No pull request (schedule, push) | `pr-comment: false` | The job summary and the artifact still list everything. |
 | Gmail clipping | `size-limit-kb` | Warns when an email is over 102 KB (the default). |
 | Non-email projects | `product-name` | Defaults to `emails`. Set to e.g. `docs` or `components` so headings and comments match your project. |
+| A single downloadable archive | `zip-artifact: true` | Packs the artifact directory into a zip (named from `artifact-name`) before upload. |
 
 ## Real-world example
 
@@ -113,7 +114,7 @@ steps:
       artifact-name: rendered-email
 ```
 
-The artifact is a directory; the comment links the run and tells you to open `index.html`. `index.html` lists every rendered file with its size.
+The artifact is a directory; the comment links the run and tells you to open `index.html`. `index.html` lists every rendered file with its size. With `zip-artifact: true` the directory also contains a zip of everything, named after `artifact-name`.
 
 The comment heading is `### Rendered emails` (or `### Rendered <product-name>`). A later run updates the existing bot comment instead of adding another one. It also replaces an older `### Sandbox HTML` or fixture comment. With `comment-key` the heading is `### Rendered emails (<key>)` and each key is tracked separately. Override the whole heading with `comment-heading`.
 
@@ -175,6 +176,7 @@ Set `command`, or `templates`, or both `input` and `output`. The action writes `
 | `comment-key` | no | empty | Gives this call its own comment, so several calls in one pull request do not overwrite each other. |
 | `product-name` | no | `emails` | Human-readable name used in the index title, job summary, and PR comment. Defaults keep existing email behavior. |
 | `comment-heading` | no | empty | Full override of the PR comment heading. Empty uses `### Rendered <product-name>`. |
+| `zip-artifact` | no | `false` | When true, pack the artifact directory into a zip (named from `artifact-name`) before upload. The zip is included in the uploaded directory. |
 
 ## Outputs
 
