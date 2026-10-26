@@ -14,8 +14,8 @@
 #
 # This is a GitHub Action, not an npm package. Consumers pin it in workflow
 # files as:
-#   uses: LLazyEmail/email-template-workflows@v2.1.0
-# (or the floating major @v1 / @v2).
+#   uses: LLazyEmail/email-template-workflows@v1
+# (or a floating major / exact tag).
 #
 # Known consumers that pin a specific version (override with the repos input):
 #   - generate-template
@@ -108,7 +108,7 @@ jobs:
         repo: ${{ fromJson(needs.resolve.outputs.matrix) }}
     steps:
       - name: Checkout consumer
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ matrix.repo }}
           token: ${{ secrets.CASCADE_TOKEN }}
@@ -148,9 +148,11 @@ jobs:
 
           echo "Found ${#FILES[@]} file(s):"
           printf '  %s\n' "${FILES[@]}"
-          echo "files<<EOF" >> "$GITHUB_OUTPUT"
-          printf '%s\n' "${FILES[@]}" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          {
+            echo "files<<EOF"
+            printf '%s\n' "${FILES[@]}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
           # Show current pins
           echo "### Current pins"
@@ -183,7 +185,7 @@ jobs:
 
       - name: Create pull request
         if: steps.detect.outputs.skip != 'true' && inputs.dry_run != true
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
         with:
           token: ${{ secrets.CASCADE_TOKEN }}
           path: consumer

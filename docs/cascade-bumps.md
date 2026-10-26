@@ -5,10 +5,10 @@ After a release of `LLazyEmail/email-template-workflows` you can open update pul
 This repository publishes a **GitHub Action**, not an npm package. Consumers pin it in their workflow files:
 
 ```yaml
-- uses: LLazyEmail/email-template-workflows@v2.1.0
+- uses: LLazyEmail/email-template-workflows@v1
 ```
 
-(or the floating major `@v1` / `@v2`).
+(or a specific tag like `@v2.1.0`, or the floating major `@v2`).
 
 ## How to run
 
