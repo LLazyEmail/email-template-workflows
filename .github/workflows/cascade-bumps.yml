@@ -1,0 +1,214 @@
+# Cascade action-version bumps after an email-template-workflows release
+#
+# Call this separately (Actions → Cascade action bumps → Run workflow)
+# after a release is published, or any time you want to open update PRs
+# in LLazyEmail consumer repositories.
+#
+# Required secret:
+#   CASCADE_TOKEN — fine-grained PAT or GitHub App token with:
+#     - Contents: Read and write
+#     - Pull requests: Read and write
+#     on every consumer repository listed below (or the whole org).
+#
+# The default GITHUB_TOKEN cannot create branches or PRs in other repositories.
+#
+# This is a GitHub Action, not an npm package. Consumers pin it in workflow
+# files as:
+#   uses: LLazyEmail/email-template-workflows@v1
+# (or a floating major / exact tag).
+#
+# Known consumers that pin a specific version (override with the repos input):
+#   - generate-template
+#   - postmark-transactional-template-simple
+#   - _playing_with_lit
+#   - template-runtime-display
+#   - render-template
+
+name: Cascade action bumps
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to bump to (e.g. v2.2.0 or 2.2.0)'
+        required: true
+        type: string
+      repos:
+        description: 'Comma-separated repos (owner/repo or just name). Empty = default list.'
+        required: false
+        type: string
+        default: ''
+      update_floating:
+        description: 'Also update floating majors (@v1, @v2) to the new exact version. Default false.'
+        required: false
+        type: boolean
+        default: false
+      dry_run:
+        description: 'Show what would change; do not push or open PRs'
+        required: false
+        type: boolean
+        default: false
+
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      repos:
+        required: false
+        type: string
+        default: ''
+      update_floating:
+        required: false
+        type: boolean
+        default: false
+      dry_run:
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      CASCADE_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cascade-action-bumps-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve target repos
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - id: matrix
+        env:
+          INPUT_REPOS: ${{ inputs.repos }}
+        run: |
+          if [ -n "$INPUT_REPOS" ]; then
+            echo "$INPUT_REPOS" | jq -R 'split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)) | map(if contains("/") then . else "LLazyEmail/\(.)" end)' > matrix.json
+          else
+            cat > matrix.json <<'EOF'
+          ["LLazyEmail/generate-template","LLazyEmail/postmark-transactional-template-simple","LLazyEmail/_playing_with_lit","LLazyEmail/template-runtime-display","LLazyEmail/render-template"]
+          EOF
+          fi
+          jq -c . matrix.json
+          echo "matrix=$(jq -c . matrix.json)" >> "$GITHUB_OUTPUT"
+
+  bump:
+    name: Bump ${{ matrix.repo }}
+    needs: resolve
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        repo: ${{ fromJson(needs.resolve.outputs.matrix) }}
+    steps:
+      - name: Checkout consumer
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ matrix.repo }}
+          token: ${{ secrets.CASCADE_TOKEN }}
+          ref: main
+          path: consumer
+
+      - name: Normalize version and scan workflows
+        id: detect
+        working-directory: consumer
+        env:
+          VERSION: ${{ inputs.version }}
+          UPDATE_FLOATING: ${{ inputs.update_floating }}
+        run: |
+          set -euo pipefail
+
+          # Accept v2.2.0 or 2.2.0
+          if [[ "$VERSION" =~ ^v ]]; then
+            NEW_TAG="$VERSION"
+          else
+            NEW_TAG="v$VERSION"
+          fi
+          echo "new_tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
+
+          if [ ! -d .github/workflows ]; then
+            echo "No .github/workflows — skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Find files that reference the action
+          mapfile -t FILES < <(grep -l -E 'LLazyEmail/email-template-workflows@' .github/workflows/*.yml .github/workflows/*.yaml 2>/dev/null || true)
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "No references found — skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Found ${#FILES[@]} file(s):"
+          printf '  %s\n' "${FILES[@]}"
+          {
+            echo "files<<EOF"
+            printf '%s\n' "${FILES[@]}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          # Show current pins
+          echo "### Current pins"
+          grep -n -E 'LLazyEmail/email-template-workflows@' "${FILES[@]}" || true
+
+      - name: Apply version bump
+        if: steps.detect.outputs.skip != 'true'
+        working-directory: consumer
+        env:
+          NEW_TAG: ${{ steps.detect.outputs.new_tag }}
+          UPDATE_FLOATING: ${{ inputs.update_floating }}
+        run: |
+          set -euo pipefail
+
+          # Update exact pins like @v2.1.0, @v1.5.0, etc.
+          # Optionally also update floating majors @v1 / @v2
+          find .github/workflows -type f \( -name '*.yml' -o -name '*.yaml' \) -print0 | while IFS= read -r -d '' f; do
+            if [ "$UPDATE_FLOATING" = "true" ]; then
+              # Replace any @vN or @vN.M.P with the new tag
+              sed -i -E "s|(LLazyEmail/email-template-workflows@)v[0-9]+(\.[0-9]+)*|\1${NEW_TAG}|g" "$f"
+            else
+              # Only replace fully-qualified versions (vMAJOR.MINOR.PATCH), leave floating majors alone
+              sed -i -E "s|(LLazyEmail/email-template-workflows@)v[0-9]+\.[0-9]+\.[0-9]+|\1${NEW_TAG}|g" "$f"
+            fi
+          done
+
+          echo "### Diff"
+          git diff --stat || true
+          git diff || true
+
+      - name: Create pull request
+        if: steps.detect.outputs.skip != 'true' && inputs.dry_run != true
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
+        with:
+          token: ${{ secrets.CASCADE_TOKEN }}
+          path: consumer
+          commit-message: "chore: bump LLazyEmail/email-template-workflows to ${{ steps.detect.outputs.new_tag }}"
+          title: "chore: bump LLazyEmail/email-template-workflows to ${{ steps.detect.outputs.new_tag }}"
+          body: |
+            Automated cascade bump from the email-template-workflows release workflow.
+
+            - Action: `LLazyEmail/email-template-workflows`
+            - New pin: `${{ steps.detect.outputs.new_tag }}`
+            - Source: [LLazyEmail/email-template-workflows](https://github.com/LLazyEmail/email-template-workflows)
+
+            Floating major tags (`@v1`, `@v2`) are left unchanged unless `update_floating` was set.
+            Please review the workflow diff and CI.
+          branch: chore/bump-email-template-workflows-${{ steps.detect.outputs.new_tag }}
+          base: main
+          delete-branch: true
+          labels: dependencies
+          signoff: false
+
+      - name: Dry-run summary
+        if: steps.detect.outputs.skip != 'true' && inputs.dry_run == true
+        run: |
+          echo "### Dry run — ${{ matrix.repo }}"
+          echo "Would update \`uses: LLazyEmail/email-template-workflows@…\` to \`${{ steps.detect.outputs.new_tag }}\`"
+          echo "No branch or PR created."
