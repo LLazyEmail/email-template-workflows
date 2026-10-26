@@ -11,6 +11,8 @@
 #     on every consumer repository listed below (or the whole org).
 #
 # The default GITHUB_TOKEN cannot create branches or PRs in other repositories.
+# If the secret is missing the workflow falls back to opening a simple labeled
+# "please upgrade" PR (with a short note file) instead of failing the checkout.
 #
 # This is a GitHub Action, not an npm package. Consumers pin it in workflow
 # files as:
@@ -68,7 +70,7 @@ on:
         default: false
     secrets:
       CASCADE_TOKEN:
-        required: true
+        required: false
 
 permissions:
   contents: read
@@ -107,8 +109,23 @@ jobs:
       matrix:
         repo: ${{ fromJson(needs.resolve.outputs.matrix) }}
     steps:
+      - name: Check token
+        id: token
+        env:
+          TOKEN: ${{ secrets.CASCADE_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "token_present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::CASCADE_TOKEN is empty — will open a labeled upgrade PR instead of editing pins"
+          else
+            echo "token_present=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout consumer
+        id: checkout
+        if: steps.token.outputs.token_present == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        continue-on-error: true
         with:
           repository: ${{ matrix.repo }}
           token: ${{ secrets.CASCADE_TOKEN }}
@@ -117,6 +134,7 @@ jobs:
 
       - name: Normalize version and scan workflows
         id: detect
+        if: steps.checkout.outcome == 'success'
         working-directory: consumer
         env:
           VERSION: ${{ inputs.version }}
@@ -133,7 +151,7 @@ jobs:
           echo "new_tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
 
           if [ ! -d .github/workflows ]; then
-            echo "No .github/workflows — skipping"
+            echo "No .github/workflows — skipping pin edit"
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -141,7 +159,7 @@ jobs:
           # Find files that reference the action
           mapfile -t FILES < <(grep -l -E 'LLazyEmail/email-template-workflows@' .github/workflows/*.yml .github/workflows/*.yaml 2>/dev/null || true)
           if [ ${#FILES[@]} -eq 0 ]; then
-            echo "No references found — skipping"
+            echo "No references found — skipping pin edit"
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -159,7 +177,7 @@ jobs:
           grep -n -E 'LLazyEmail/email-template-workflows@' "${FILES[@]}" || true
 
       - name: Apply version bump
-        if: steps.detect.outputs.skip != 'true'
+        if: steps.detect.outputs.skip != 'true' && steps.checkout.outcome == 'success'
         working-directory: consumer
         env:
           NEW_TAG: ${{ steps.detect.outputs.new_tag }}
@@ -183,8 +201,8 @@ jobs:
           git diff --stat || true
           git diff || true
 
-      - name: Create pull request
-        if: steps.detect.outputs.skip != 'true' && inputs.dry_run != true
+      - name: Create pin-update pull request
+        if: steps.detect.outputs.skip != 'true' && steps.checkout.outcome == 'success' && inputs.dry_run != true
         uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
         with:
           token: ${{ secrets.CASCADE_TOKEN }}
@@ -206,9 +224,62 @@ jobs:
           labels: dependencies
           signoff: false
 
+      - name: Create labeled upgrade PR (fallback)
+        if: (steps.token.outputs.token_present == 'false' || steps.checkout.outcome != 'success' || steps.detect.outputs.skip == 'true') && inputs.dry_run != true
+        env:
+          GH_TOKEN: ${{ secrets.CASCADE_TOKEN || secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+          REPO: ${{ matrix.repo }}
+        run: |
+          set -euo pipefail
+          # Normalize version
+          if [[ "$VERSION" =~ ^v ]]; then
+            NEW_TAG="$VERSION"
+          else
+            NEW_TAG="v$VERSION"
+          fi
+
+          BRANCH="chore/upgrade-email-template-workflows-$NEW_TAG"
+          TITLE="chore: upgrade email-template-workflows to $NEW_TAG"
+          BODY=$(cat <<EOF
+          Automated cascade request from [LLazyEmail/email-template-workflows](https://github.com/LLazyEmail/email-template-workflows).
+
+          Please bump the pin of \`LLazyEmail/email-template-workflows\` to \`$NEW_TAG\` in this repository's workflow files.
+
+          (This is a lightweight labeled PR because the full pin-edit path was not available — usually because CASCADE_TOKEN was missing or checkout failed.)
+          EOF
+          )
+
+          # Create a tiny note file so the PR is not empty
+          mkdir -p /tmp/note
+          echo "Upgrade email-template-workflows to $NEW_TAG" > /tmp/note/UPGRADE_EMAIL_WORKFLOWS.md
+
+          # Use gh to create the branch + PR if possible
+          if [ -n "${GH_TOKEN:-}" ]; then
+            gh api --method POST "/repos/$REPO/git/refs" \
+              -f ref="refs/heads/$BRANCH" \
+              -f sha="$(gh api "/repos/$REPO/git/ref/heads/main" --jq .object.sha)" || true
+
+            # Put a note file via the API (contents API)
+            gh api --method PUT "/repos/$REPO/contents/UPGRADE_EMAIL_WORKFLOWS.md" \
+              -f message="chore: note for upgrade to $NEW_TAG" \
+              -f content="$(base64 -w0 /tmp/note/UPGRADE_EMAIL_WORKFLOWS.md)" \
+              -f branch="$BRANCH" || true
+
+            gh pr create --repo "$REPO" \
+              --title "$TITLE" \
+              --body "$BODY" \
+              --head "$BRANCH" \
+              --base main \
+              --label "dependencies" || echo "PR create failed (token may lack permissions)"
+          else
+            echo "::error::No token available to open a PR in $REPO"
+            exit 1
+          fi
+
       - name: Dry-run summary
-        if: steps.detect.outputs.skip != 'true' && inputs.dry_run == true
+        if: inputs.dry_run == true
         run: |
           echo "### Dry run — ${{ matrix.repo }}"
-          echo "Would update \`uses: LLazyEmail/email-template-workflows@…\` to \`${{ steps.detect.outputs.new_tag }}\`"
+          echo "Would try to update pins to ${{ inputs.version }} or open a labeled upgrade PR."
           echo "No branch or PR created."
