@@ -112,3 +112,13 @@ Step 4 of the [playbook](docs/agent-playbook.md#step-4-verify) is the checklist:
 ## Failure annotations
 
 A non-zero build, validation or command exits with an `::error::` annotation. The annotation includes the first cause line from the command (for example `error TS2307: Cannot find module ...`), and the failure block reprints that cause plus the last 20 lines. The playbook's [troubleshooting table](docs/agent-playbook.md#when-something-goes-wrong) maps each message to a fix.
+
+## Conventions
+
+- Small, single-purpose PRs; open them as **draft** first.
+- Commit trailer when working for the maintainer:
+  `Co-authored-by: petroved <arthur.tkachenko.netweight@gmail.com>`
+- Unit tests CI on Node 22 and 24 across ubuntu/macOS/windows.
+- Docs: extend or annotate; do not delete existing docs content.
+- Cascade bumps need repo secret `CASCADE_TOKEN` (see workflow header comments).
+
