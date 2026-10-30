@@ -1,0 +1,47 @@
+# After entries land on main, open (or refresh) a release PR that folds them
+# into CHANGELOG.md. Publishing the GitHub Release / moving floating major
+# tags (v1, v2, …) stays with release.yml.
+name: Changelog release PR
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force-bump:
+        description: "Override bump (patch, minor, or major). Leave empty to auto-detect."
+        required: false
+        type: string
+        default: ''
+
+concurrency:
+  group: release-changelog-pr-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-pr:
+    name: Prepare release PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - id: changelog
+        uses: dottics/actions-changelog@26ab0bf733294bc0704d6d85881710b602708fc8 # v2.0.2
+        with:
+          mode: release
+          base-branch: main
+          pr-labels: release,automated
+          force-bump: ${{ inputs.force-bump }}
+
+      - if: steps.changelog.outputs.has-changes == 'true'
+        run: |
+          echo "Prepared ${{ steps.changelog.outputs.tag }}"
+          echo "PR: ${{ steps.changelog.outputs.pull-request-url }}"

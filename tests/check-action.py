@@ -136,7 +136,7 @@ ok(f"{checked} workflow/action references pinned to a SHA")
 # ---------------------------------------------------------------------------
 # Documentation: snippets and links
 # ---------------------------------------------------------------------------
-DOCS = ["README.md", "AGENTS.md", "llms.txt", "CHANGELOG.md"] + sorted(glob.glob("docs/*.md"))
+DOCS = ["README.md", "AGENTS.md", "CONTRIBUTING.md", "llms.txt", "CHANGELOG.md"] + sorted(glob.glob("docs/*.md"))
 ACTION_REF = re.compile(r"^LLazyEmail/email-template-workflows@")
 
 
