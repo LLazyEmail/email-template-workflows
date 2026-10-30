@@ -15,7 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # Release PRs delete entries rather than adding them.
-    if: ${{ !startsWith(github.head_ref, 'release/') }}
+    # Release PRs (dottics/actions-changelog opens them on rel/vX.Y.Z) delete
+    # entries rather than adding them, so skip validation there.
+    if: ${{ !startsWith(github.head_ref, 'release/') && !startsWith(github.head_ref, 'rel/') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
