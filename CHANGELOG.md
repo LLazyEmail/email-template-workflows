@@ -2,6 +2,12 @@
 
 All notable changes to `LLazyEmail/email-template-workflows` are listed here.
 
+## [2.5.0] - 2026-10-30
+
+### Added
+
+- Auto-publish on merge: after a release PR lands, create the vX.Y.Z tag and GitHub Release from CHANGELOG.md, and move the floating major tag (v2). Ports documentation-actions #27 plus the GITHUB_TOKEN major-tag fix. Idempotent so a missed release (for example v2.4.0 already on CHANGELOG) is published on the first run when the tag is still missing.
+
 ## [2.4.0] - 2026-10-30
 
 ### Added
@@ -89,4 +95,5 @@ All notable changes to `LLazyEmail/email-template-workflows` are listed here.
 ### Removed
 - `example-workflow.yml` at the repository root. It posted its own comment on top of the built-in one. Use `examples/` instead.
 
+[2.5.0]: https://github.com/LLazyEmail/email-template-workflows/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/LLazyEmail/email-template-workflows/compare/v2.3.0...v2.4.0
