@@ -46,7 +46,7 @@ The package manager is detected (`package-manager: auto`) from the `packageManag
 ## Optional
 
 - [Repository metadata suggestions](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/docs/REPO-METADATA.md): description, topics, Marketplace branding
-- [Changelog](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/CHANGELOG.md): what changed in each release
+- [Changelog](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/CHANGELOG.md): what changed in each release (new notes come from [`.changelog/`](https://github.com/LLazyEmail/email-template-workflows/tree/main/.changelog) fragments)
 - [Issues](https://github.com/LLazyEmail/email-template-workflows/issues): known limitations. #21 (Lit scripts and `--input`/`--output`) is addressed by `input-flag`, `output-flag`, `EMAIL_TEMPLATE_*` and `build-command`
 - [Marketplace listing](https://github.com/marketplace/actions/render-email-template)
 - [License (MIT)](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/LICENSE)

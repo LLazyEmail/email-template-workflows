@@ -93,6 +93,8 @@ steps:
 - [`docs/agent-playbook.md`](docs/agent-playbook.md): start here. Inspect the repository, choose a mode, write the workflow, verify. Copy-paste recipes and a table that maps log messages to fixes.
 - [`llms.txt`](llms.txt): short index of this repository for LLMs.
 - [`AGENTS.md`](AGENTS.md): decision rules, input precedence, gotchas and a verification checklist for agents that add this Action to a repository.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md): local checks, commit trailer, and `.changelog/` entry format for changes in this repository.
+- [`CHANGELOG.md`](CHANGELOG.md): release notes (new entries come from [`.changelog/`](.changelog/) fragments).
 - [`action.yml`](action.yml): source of truth for inputs, outputs and defaults.
 
 ## Usage

@@ -91,22 +91,44 @@ Step 4 of the [playbook](docs/agent-playbook.md#step-4-verify) is the checklist:
 
 ## Working on this repository
 
-- `action.yml` is the single source of truth. When inputs, defaults, or outputs change, update `README.md`, `llms.txt`, this file and `CHANGELOG.md` in the same commit. `python3 tests/check-action.py` fails if an input or output is missing from the README.
+- `action.yml` is the single source of truth. When inputs, defaults, or outputs change, update `README.md`, `llms.txt`, this file and add a `.changelog/` entry in the same commit (do not hand-edit `CHANGELOG.md` for those changes). `python3 tests/check-action.py` fails if an input or output is missing from the README.
 - The logic lives in `scripts/`: `detect-package-manager.sh`, `render.sh` and `pr-comment.js`. Keep the shell compatible with bash 3.2 (macOS) and Git Bash (Windows): no `mapfile`, no namerefs, no bare `"${array[@]}"` on a possibly empty array. Remember that `set -e` is ignored inside a function called from an `if`, so end commands with `|| return 1`.
-- Run the tests before committing: `bash tests/detect-package-manager.test.sh`, `bash tests/render.test.sh`, `node tests/pr-comment.test.js`, `python3 tests/check-action.py`. Add a test with every behaviour change.
+- Run the tests before committing: `bash tests/detect-package-manager.test.sh`, `bash tests/render.test.sh`, `node tests/pr-comment.test.js`, `python3 tests/check-action.py`, `bash tests/changelog-entries.test.sh`. Add a test with every behaviour change.
 - `fixtures/consumer` and `.github/workflows/fixture-render.yml` exercise every mode via `uses: ./`. Jobs that must not comment set `pr-comment: false` so a PR gets one comment, not several. Keep that.
 - `.github/workflows/ci.yml` lints (yamllint, shellcheck, actionlint) and runs the tests on Linux, macOS and Windows.
 - Every `uses:` in `action.yml` and `.github/workflows/` is pinned to a full commit SHA with a `# vX.Y.Z` comment. `renovate.json` keeps them current. Do not replace a SHA with a tag.
-- `.github/workflows/release.yml` moves the floating major tag (`v1`) when a `vMAJOR.MINOR.PATCH` release is published. Publish releases instead of moving tags by hand.
+- `.github/workflows/release.yml` moves the floating major tag (`v1`, `v2`, …) when a `vMAJOR.MINOR.PATCH` release is published. Publish releases instead of moving tags by hand. The Changelog release PR workflow only folds `.changelog/` entries into `CHANGELOG.md`; it does not tag or move floating majors.
 - Do not add a build step or compiled code. The Action is composite YAML plus shell scripts and one `github-script` file.
 - Keep the comment markers stable: the hidden `<!-- email-template-workflows -->` marker (keyed runs use `<!-- email-template-workflows:KEY -->`), `### Rendered emails`, and the legacy headings. The update-in-place behavior depends on them.
+
+
+
+## Changelog entries (`.changelog/`)
+
+Do **not** edit `CHANGELOG.md` by hand for user-facing changes. Add one flat
+file under [`.changelog/`](.changelog/) instead (see [`.changelog/README.md`](.changelog/README.md)):
+
+```markdown
+semver: minor
+type: Added
+Short user-facing summary.
+```
+
+- `semver:` is required (`major` | `minor` | `patch`).
+- `type:` is optional (`Added` | `Changed` | `Deprecated` | `Removed` | `Fixed` | `Security`).
+- Filename is a unique slug only (avoids merge conflicts on `CHANGELOG.md`).
+- CI validates entries on every PR (`scripts/changelog-check.sh` + `dottics/actions-changelog` validate mode). Use label `skip-changelog` / `no-changelog` to waive.
+- After merge, **Changelog release PR** folds waiting entries into `CHANGELOG.md` and opens `chore(release): vX.Y.Z`. Merge that, then publish a GitHub Release; `release.yml` moves the floating major tag. Existing hand-edited history in `CHANGELOG.md` is preserved.
+- Contributor notes: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Reference
 
 - Inputs, outputs, defaults: `action.yml`
 - Human-oriented docs: `README.md`
 - Machine-oriented index: `llms.txt`
-- Release notes: `CHANGELOG.md`
+- Release notes: `CHANGELOG.md` (compiled from `.changelog/` entries going forward; prior hand-edited history kept)
+- Pending release notes: `.changelog/`
+- Contributing: `CONTRIBUTING.md`
 - Real consumer: `LLazyEmail/_playing_with_lit` → `.github/workflows/render-email-action.yml` (explained in `docs/real-world-example.md`)
 
 ## Failure annotations

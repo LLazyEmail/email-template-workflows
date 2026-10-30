@@ -1,0 +1,32 @@
+# Validate .changelog entry files on pull requests.
+name: Changelog entries
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Release PRs delete entries rather than adding them.
+    if: ${{ !startsWith(github.head_ref, 'release/') }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Local header check
+        run: bash scripts/changelog-check.sh
+
+      - uses: dottics/actions-changelog@26ab0bf733294bc0704d6d85881710b602708fc8 # v2.0.2
+        with:
+          mode: validate
+          require-entry: 'true'
+          skip-labels: no-changelog,skip-changelog,dependencies

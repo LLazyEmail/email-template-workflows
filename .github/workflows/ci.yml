@@ -92,6 +92,9 @@ jobs:
       - name: Pull request comment
         run: node tests/pr-comment.test.js
 
+      - name: Changelog entries
+        run: bash tests/changelog-entries.test.sh
+
       # macOS ships bash 3.2 as /bin/bash, and Homebrew's bash comes first on
       # PATH on the runners. Put the system bash first to prove the scripts
       # still run on it.
