@@ -2,6 +2,21 @@
 
 All notable changes to `LLazyEmail/email-template-workflows` are listed here.
 
+## [2.4.0] - 2026-10-30
+
+### Added
+
+- `.changelog/` fragment workflow: per-PR entry files with required `semver:`
+  (+ optional `type:`), `scripts/changelog-check.sh` and a unit test, PR
+  validation workflow, and a post-merge release-PR workflow
+  (`dottics/actions-changelog@v2.0.2`, SHA-pinned) that compiles waiting entries
+  into `CHANGELOG.md`. Existing hand-edited changelog history and the floating
+  major-tag `release.yml` stay in place.
+
+### Fixed
+
+- Release PRs on rel/vX.Y.Z no longer fail CI: changelog validation skips them and the changelog unit test uses a fixture instead of a real entry.
+
 ## [Unreleased]
 
 ### Added
@@ -73,3 +88,5 @@ All notable changes to `LLazyEmail/email-template-workflows` are listed here.
 
 ### Removed
 - `example-workflow.yml` at the repository root. It posted its own comment on top of the built-in one. Use `examples/` instead.
+
+[2.4.0]: https://github.com/LLazyEmail/email-template-workflows/compare/v2.3.0...v2.4.0
