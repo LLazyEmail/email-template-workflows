@@ -2,6 +2,16 @@
 
 All notable changes to `LLazyEmail/email-template-workflows` are listed here.
 
+## [2.6.0] - 2026-10-31
+
+### Added
+
+- Add `file-path` and `file-count` output aliases, and make the size warning title generic when `product-name` is not `emails`.
+
+### Fixed
+
+- Rewrite the FILE_PATTERN find expression as an array so shellcheck is clean (SC2086/SC2089/SC2090).
+
 ## [2.5.0] - 2026-10-30
 
 ### Added
@@ -96,5 +106,6 @@ All notable changes to `LLazyEmail/email-template-workflows` are listed here.
 ### Removed
 - `example-workflow.yml` at the repository root. It posted its own comment on top of the built-in one. Use `examples/` instead.
 
+[2.6.0]: https://github.com/LLazyEmail/email-template-workflows/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/LLazyEmail/email-template-workflows/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/LLazyEmail/email-template-workflows/compare/v2.3.0...v2.4.0
