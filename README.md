@@ -66,7 +66,7 @@ steps:
 | A script with other argument names | `input-flag`, `output-flag` | `--src` passes `--src <path>`, `--src=` passes `--src=<path>`, empty passes the path positionally. |
 | A script that reads environment variables | nothing | `EMAIL_TEMPLATE_INPUT` and `EMAIL_TEMPLATE_OUTPUT` are always set. |
 | A CLI that is not an npm script | `build-command` | Runs once per template. |
-| A CLI that renders a whole folder | `command` | Runs once; every `*.html` file under `artifact-directory` is indexed. |
+| A CLI that renders a whole folder | `command` | Runs once; every file matching `file-pattern` (default `*.html`) under `artifact-directory` is indexed. |
 | Shared code to build first | `prebuild-command` | Runs after install, before rendering, in every mode. |
 | A private registry | `registry-url`, `registry-scope` | Authenticate with `NODE_AUTH_TOKEN` in the job's `env`. |
 | A Node version file | `node-version-file` | `.nvmrc`, `.node-version` or `.tool-versions`. |
@@ -76,6 +76,7 @@ steps:
 | Gmail clipping | `size-limit-kb` | Warns when a file is over the limit (default 102 KB). Uses email-specific wording only when `product-name` is `emails`. |
 | Non-email projects | `product-name` | Defaults to `emails`. Set to e.g. `docs` or `components` so headings and comments match your project. |
 | A single downloadable archive | `zip-artifact: true` | Packs the artifact directory into a zip (named from `artifact-name`) before upload. |
+| Any file type in command mode | `file-pattern` | Defaults to `*.html`. Set to e.g. `*.md` or `*.html *.json` to index other files. |
 
 ## Real-world example
 
@@ -129,6 +130,7 @@ Set `command`, or `templates`, or both `input` and `output`. The action writes `
 | Input | Required | Default | Meaning |
 | --- | --- | --- | --- |
 | `command` | no | empty | Command mode. Shell command run after install. Ignores `templates`, `input`, `output`, `build-command`, `build-script`, `validate-command`, `validate-script` and `extra-args`. Needs `artifact-directory`. |
+| `file-pattern` | no | `*.html` | Glob (or space-separated globs) used to index files in command mode. Defaults keep existing email behavior. Example: `*.md` or `*.html *.json`. |
 | `templates` | no | empty | Multiline `input:output` pairs, relative to `working-directory`. Blank lines and `#` lines are skipped. Paths must not contain a colon. Ignored when `command` is set. |
 | `input` | no | empty | Single source path, relative to `working-directory` |
 | `output` | no | empty | Single HTML path, relative to `working-directory` |
