@@ -335,13 +335,11 @@ for f in "${rendered[@]}"; do
   sizes+=("$bytes")
   if [ "$SIZE_LIMIT_KB" -gt 0 ] && [ "$bytes" -gt $((SIZE_LIMIT_KB * 1024)) ]; then
     if [ "$PRODUCT_NAME" = "emails" ]; then
-      title="Email may be clipped"
-      msg="$f is $(size_kb "$bytes") KB, over the size-limit-kb of $SIZE_LIMIT_KB KB. Gmail clips messages larger than about 102 KB."
+      # Keep the exact title the existing tests assert on.
+      echo "::warning file=$WORKDIR/$f,title=Email may be clipped::$f is $(size_kb "$bytes") KB, over the size-limit-kb of $SIZE_LIMIT_KB KB. Gmail clips messages larger than about 102 KB."
     else
-      title="File may be large"
-      msg="$f is $(size_kb "$bytes") KB, over the size-limit-kb of $SIZE_LIMIT_KB KB."
+      echo "::warning file=$WORKDIR/$f,title=File may be large::$f is $(size_kb "$bytes") KB, over the size-limit-kb of $SIZE_LIMIT_KB KB."
     fi
-    echo "::warning file=$WORKDIR/$f,title=$title::$msg"
   fi
 done
 
