@@ -188,6 +188,12 @@ outputs:
   html-count:
     description: Number of HTML files rendered
     value: ${{ steps.render.outputs.html-count }}
+  file-path:
+    description: Alias of html-path. Path to the first generated file, relative to the workspace. Preferred name for non-email use.
+    value: ${{ steps.render.outputs.file-path }}
+  file-count:
+    description: Alias of html-count. Number of files rendered. Preferred name for non-email use.
+    value: ${{ steps.render.outputs.file-count }}
   failed-count:
     description: Number of templates that failed to render. Always 0 unless fail-fast is false.
     value: ${{ steps.render.outputs.failed-count }}
