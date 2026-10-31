@@ -34,6 +34,14 @@ inputs:
     required: false
     default: ""
 
+  file-pattern:
+    description: |
+      Glob (or space-separated globs) used to index files in command mode.
+      Defaults to `*.html` so existing email workflows are unchanged.
+      Example: `*.md` or `*.html *.json`. Only used when `command` is set.
+    required: false
+    default: "*.html"
+
   # --- How to render each template -----------------------------------------
   build-command:
     description: |
@@ -314,6 +322,7 @@ runs:
         JOB_SUMMARY: ${{ inputs.job-summary }}
         PRODUCT_NAME: ${{ inputs.product-name }}
         COMMENT_HEADING: ${{ inputs.comment-heading }}
+        FILE_PATTERN: ${{ inputs.file-pattern }}
       run: bash "$GITHUB_ACTION_PATH/scripts/render.sh"
 
     - name: Zip the artifact
