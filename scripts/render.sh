@@ -33,6 +33,7 @@ SIZE_LIMIT_KB=${SIZE_LIMIT_KB:-102}
 JOB_SUMMARY=${JOB_SUMMARY:-true}
 PRODUCT_NAME=${PRODUCT_NAME:-emails}
 COMMENT_HEADING=${COMMENT_HEADING:-}
+FILE_PATTERN=${FILE_PATTERN:-*.html}
 OUT=${GITHUB_OUTPUT:-/dev/null}
 SUMMARY=${GITHUB_STEP_SUMMARY:-/dev/null}
 
@@ -259,9 +260,25 @@ if [ -n "$COMMAND" ]; then
     explain_failure "artifact-directory not found" "artifact-directory '$outdir' does not exist after the command ran. It is relative to working-directory."
     exit 1
   fi
+  # Index files matching FILE_PATTERN (default *.html). Space-separated globs.
+  # Always exclude index.html so the generated listing is not indexed.
+  # Build a find expression that works on bash 3.2 (no empty arrays).
+  expr=""
+  first=true
+  for pat in $FILE_PATTERN; do
+    if [ "$first" = true ]; then
+      expr="-name $pat"
+      first=false
+    else
+      expr="$expr -o -name $pat"
+    fi
+  done
+  if [ -z "$expr" ]; then
+    expr="-name '*.html'"
+  fi
   while IFS= read -r f; do
     rendered+=("$f")
-  done < <(find "$outdir" -type f -name '*.html' ! -name 'index.html' | sort)
+  done < <(find "$outdir" -type f \( $expr \) ! -name 'index.html' | sort)
 else
   if [ -z "$BUILD_COMMAND" ]; then
     if [ -z "$BUILD_SCRIPT" ]; then
