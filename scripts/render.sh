@@ -262,23 +262,23 @@ if [ -n "$COMMAND" ]; then
   fi
   # Index files matching FILE_PATTERN (default *.html). Space-separated globs.
   # Always exclude index.html so the generated listing is not indexed.
-  # Build a find expression that works on bash 3.2 (no empty arrays).
-  expr=""
+  # Build find predicates as an array (shellcheck-clean, bash 3.2 safe).
+  find_args=()
   first=true
   for pat in $FILE_PATTERN; do
     if [ "$first" = true ]; then
-      expr="-name $pat"
+      find_args+=(-name "$pat")
       first=false
     else
-      expr="$expr -o -name $pat"
+      find_args+=(-o -name "$pat")
     fi
   done
-  if [ -z "$expr" ]; then
-    expr="-name '*.html'"
+  if [ "${#find_args[@]}" -eq 0 ]; then
+    find_args=(-name '*.html')
   fi
   while IFS= read -r f; do
     rendered+=("$f")
-  done < <(find "$outdir" -type f \( $expr \) ! -name 'index.html' | sort)
+  done < <(find "$outdir" -type f \( "${find_args[@]}" \) ! -name 'index.html' | sort)
 else
   if [ -z "$BUILD_COMMAND" ]; then
     if [ -z "$BUILD_SCRIPT" ]; then
