@@ -351,7 +351,12 @@ for f in "${rendered[@]}"; do
   bytes=$(wc -c < "$f" | tr -d '[:space:]')
   sizes+=("$bytes")
   if [ "$SIZE_LIMIT_KB" -gt 0 ] && [ "$bytes" -gt $((SIZE_LIMIT_KB * 1024)) ]; then
-    echo "::warning file=$WORKDIR/$f,title=Email may be clipped::$f is $(size_kb "$bytes") KB, over the size-limit-kb of $SIZE_LIMIT_KB KB. Gmail clips messages larger than about 102 KB."
+    if [ "$PRODUCT_NAME" = "emails" ]; then
+      # Keep the exact title the existing tests assert on.
+      echo "::warning file=$WORKDIR/$f,title=Email may be clipped::$f is $(size_kb "$bytes") KB, over the size-limit-kb of $SIZE_LIMIT_KB KB. Gmail clips messages larger than about 102 KB."
+    else
+      echo "::warning file=$WORKDIR/$f,title=File may be large::$f is $(size_kb "$bytes") KB, over the size-limit-kb of $SIZE_LIMIT_KB KB."
+    fi
   fi
 done
 
@@ -416,6 +421,8 @@ fi
 {
   echo "html-count=${#rendered[@]}"
   echo "html-path=$WORKDIR/${rendered[0]}"
+  echo "file-count=${#rendered[@]}"
+  echo "file-path=$WORKDIR/${rendered[0]}"
   echo "artifact-dir=$WORKDIR/$outdir"
   echo "failed-count=${#failed[@]}"
 } >> "$OUT"

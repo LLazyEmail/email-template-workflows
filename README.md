@@ -73,7 +73,7 @@ steps:
 | One broken template among many | `fail-fast: false` | Renders the rest, uploads and comments, then fails the job. |
 | Two sets of emails in one pull request | `comment-key` | Each key gets its own comment. |
 | No pull request (schedule, push) | `pr-comment: false` | The job summary and the artifact still list everything. |
-| Gmail clipping | `size-limit-kb` | Warns when an email is over 102 KB (the default). |
+| Gmail clipping | `size-limit-kb` | Warns when a file is over the limit (default 102 KB). Uses email-specific wording only when `product-name` is `emails`. |
 | Non-email projects | `product-name` | Defaults to `emails`. Set to e.g. `docs` or `components` so headings and comments match your project. |
 | A single downloadable archive | `zip-artifact: true` | Packs the artifact directory into a zip (named from `artifact-name`) before upload. |
 | Any file type in command mode | `file-pattern` | Defaults to `*.html`. Set to e.g. `*.md` or `*.html *.json` to index other files. |
@@ -148,7 +148,7 @@ Set `command`, or `templates`, or both `input` and `output`. The action writes `
 | `validate-script` | no | `validate-email` | `package.json` script that validates one compiled file. Empty skips validation. If the script is not defined in `package.json`, validation is skipped with a warning. |
 | `validate-flag` | no | `--file` | How the compiled file is passed to `validate-script`. Same styles as `input-flag`. |
 | `fail-fast` | no | `true` | `true` stops at the first failing template. `false` renders the rest, uploads, comments, then fails the job at the end. |
-| `size-limit-kb` | no | `102` | Warn when a rendered email is larger than this many KB. Gmail clips messages over about 102 KB. `0` disables the check. |
+| `size-limit-kb` | no | `102` | Warn when a rendered file is larger than this many KB. When `product-name` is `emails` the warning mentions Gmail clipping; otherwise it is generic. `0` disables the check. |
 
 ### Where and with what to run
 
@@ -188,6 +188,8 @@ Set `command`, or `templates`, or both `input` and `output`. The action writes `
 | --- | --- |
 | `html-path` | Path to the first generated HTML file, relative to the workspace |
 | `html-count` | Number of HTML files rendered |
+| `file-path` | Alias of `html-path`. Preferred name for non-email use. |
+| `file-count` | Alias of `html-count`. Preferred name for non-email use. |
 | `failed-count` | Number of templates that failed. Always `0` unless `fail-fast` is `false`. |
 | `artifact-dir` | The directory that was indexed and uploaded, relative to the workspace |
 | `artifact-url` | Link to the uploaded artifact. Empty when `upload-artifact` is not `true`. |
@@ -209,7 +211,7 @@ Your own `env:` on the job is passed through as usual, so secrets such as `NODE_
 - A template that fails to build, fails validation, or writes an empty file fails the job with an error annotation naming it. The annotation also includes the first cause line from the command (for example `error TS2307: Cannot find module ...`), and the failure block reprints that cause plus the last lines of the command.
 - With `fail-fast: false` the other templates still render. The artifact, the job summary and the pull request comment are produced, then the job fails. `failed.txt` in the artifact and a **Failed to render** section in the comment list what broke.
 - If every template fails there is nothing to publish and the job fails immediately.
-- An email over `size-limit-kb` produces a warning annotation, not a failure.
+- A file over `size-limit-kb` produces a warning annotation, not a failure. The wording is email-specific only when `product-name` is `emails`.
 
 ## Development
 
