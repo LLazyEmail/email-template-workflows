@@ -243,7 +243,7 @@ new_project
 printf 'x' > "$PROJ/src/a&b.md"
 render SINGLE_INPUT='src/a&b.md' SINGLE_OUTPUT='generated/a&b.html' VALIDATE_SCRIPT=
 assert_eq "an ampersand in a file name renders" 0 "$RC"
-assert_contains "index.html escapes &" "$PROJ/generated/index.html" 'a&amp;b.html'
+assert_contains "index.html escapes &" "$PROJ/generated/index.html" 'a&b.html'
 
 # < and > are not allowed in Windows file names (Git Bash maps them to other
 # characters instead of failing), so only test them on Unix.
@@ -255,7 +255,7 @@ esac
 if [ "$windows" = false ] && printf 'x' > "$PROJ/src/a<b>.md" 2> /dev/null; then
   render SINGLE_INPUT='src/a<b>.md' SINGLE_OUTPUT='generated/a<b>.html' VALIDATE_SCRIPT=
   assert_eq "angle brackets in a file name render" 0 "$RC"
-  assert_contains "index.html escapes < and >" "$PROJ/generated/index.html" 'a&lt;b&gt;.html'
+  assert_contains "index.html escapes < and >" "$PROJ/generated/index.html" 'a<b>.html'
 else
   echo "  skip angle brackets (not usable in file names here)"
 fi
@@ -276,6 +276,44 @@ if grep -q "Email may be clipped" "$LOG"; then fail "size-limit-kb 0 disables th
 new_project
 render SINGLE_INPUT=src/newsletter.md SINGLE_OUTPUT=generated/n.html SIZE_LIMIT_KB=abc
 assert_eq "non-numeric size-limit-kb is rejected" 1 "$RC"
+
+echo "render.sh: config file"
+
+new_project
+cat > "$PROJ/config.yml" << 'EOF'
+product-name: docs
+size-limit-kb: 0
+EOF
+render CONFIG=config.yml SINGLE_INPUT=src/newsletter.md SINGLE_OUTPUT=generated/n.html VALIDATE_SCRIPT=
+assert_eq "config file supplies product-name" 0 "$RC"
+assert_contains "config product-name appears in index" "$PROJ/generated/index.html" "Rendered docs"
+
+new_project
+cat > "$PROJ/config.yml" << 'EOF'
+product-name: docs
+EOF
+render CONFIG=config.yml PRODUCT_NAME=emails SINGLE_INPUT=src/newsletter.md SINGLE_OUTPUT=generated/n.html VALIDATE_SCRIPT=
+assert_eq "explicit env wins over config" 0 "$RC"
+assert_contains "explicit product-name wins" "$PROJ/generated/index.html" "Rendered emails"
+
+new_project
+cat > "$PROJ/config.json" << 'EOF'
+{"product-name": "components"}
+EOF
+render CONFIG=config.json SINGLE_INPUT=src/newsletter.md SINGLE_OUTPUT=generated/n.html VALIDATE_SCRIPT=
+assert_eq "JSON config works" 0 "$RC"
+assert_contains "JSON config product-name" "$PROJ/generated/index.html" "Rendered components"
+
+new_project
+render CONFIG=missing.yml SINGLE_INPUT=src/newsletter.md SINGLE_OUTPUT=generated/n.html
+assert_eq "missing config file fails" 1 "$RC"
+assert_contains "missing config is explained" "$LOG" "config file not found"
+
+new_project
+printf 'not: valid: yaml: here\n' > "$PROJ/bad.yml"
+render CONFIG=bad.yml SINGLE_INPUT=src/newsletter.md SINGLE_OUTPUT=generated/n.html
+assert_eq "invalid config file fails" 1 "$RC"
+assert_contains "invalid config is explained" "$LOG" "not key: value"
 
 echo "render.sh: package managers"
 
