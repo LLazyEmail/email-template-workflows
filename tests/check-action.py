@@ -16,6 +16,7 @@ Checks:
   * every ```yaml block in the docs parses, and every call to this Action in the
     docs and in examples/ uses only inputs that exist in action.yml, pinned to @v1
   * relative links and #anchors in the docs point at files and headings that exist
+  * config example files and the loader map only use real input names
 """
 import glob
 import os
@@ -190,6 +191,35 @@ for path in sorted(glob.glob("examples/*.yml")):
     with open(path, encoding="utf-8") as handle:
         calls += check_calls(path, yaml.safe_load(handle))
 ok(f"{snippets} YAML snippets parse; {calls} calls to this action use only real inputs")
+
+print("config schema")
+# Loader map keys must be real inputs.
+with open("scripts/load-config.js", encoding="utf-8") as handle:
+    loader = handle.read()
+loader_keys = set(re.findall(r"'([a-z0-9-]+)':\s*\{\s*env:", loader))
+unknown = sorted(k for k in loader_keys if k not in inputs)
+if unknown:
+    error(f"scripts/load-config.js maps unknown inputs: {unknown}")
+else:
+    ok(f"{len(loader_keys)} loader map keys are real inputs")
+
+# Example config files only use real input names.
+config_files = sorted(glob.glob("examples/config.*"))
+for path in config_files:
+    with open(path, encoding="utf-8") as handle:
+        try:
+            data = yaml.safe_load(handle)
+        except yaml.YAMLError as exc:
+            error(f"{path}: does not parse ({str(exc).splitlines()[0]})")
+            continue
+    if not isinstance(data, dict):
+        error(f"{path}: must be a mapping")
+        continue
+    bad = sorted(k for k in data if k not in inputs)
+    if bad:
+        error(f"{path}: unknown keys {bad}")
+    else:
+        ok(f"{path} uses only real inputs")
 
 print("documentation links")
 
