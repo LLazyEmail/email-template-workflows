@@ -42,6 +42,15 @@ inputs:
     required: false
     default: "*.html"
 
+  config:
+    description: |
+      Path to a JSON or simple YAML file whose keys match action inputs.
+      Explicit `with:` values always win; the file fills in anything still at its default.
+      Relative to working-directory. Use this to keep long flag lists out of the workflow.
+      Example keys: product-name, file-pattern, size-limit-kb, command, artifact-directory.
+    required: false
+    default: ""
+
   # --- How to render each template -----------------------------------------
   build-command:
     description: |
@@ -329,6 +338,7 @@ runs:
         PRODUCT_NAME: ${{ inputs.product-name }}
         COMMENT_HEADING: ${{ inputs.comment-heading }}
         FILE_PATTERN: ${{ inputs.file-pattern }}
+        CONFIG: ${{ inputs.config }}
       run: bash "$GITHUB_ACTION_PATH/scripts/render.sh"
 
     - name: Zip the artifact
