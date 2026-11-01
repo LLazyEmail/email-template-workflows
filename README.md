@@ -56,6 +56,27 @@ steps:
       artifact-directory: dist
 ```
 
+**Config file**: keep the workflow short by putting the flags in a file. Explicit `with:` values still win.
+
+```yaml
+steps:
+  - uses: actions/checkout@v7
+  - uses: LLazyEmail/email-template-workflows@v1
+    with:
+      working-directory: .
+      config: .email-template-workflows.yml
+```
+
+`.email-template-workflows.yml`:
+
+```yaml
+product-name: docs
+file-pattern: "*.md"
+size-limit-kb: 0
+command: npm run build:docs
+artifact-directory: dist
+```
+
 ## What it covers
 
 | You have | Set | Notes |
@@ -77,6 +98,7 @@ steps:
 | Non-email projects | `product-name` | Defaults to `emails`. Set to e.g. `docs` or `components` so headings and comments match your project. |
 | A single downloadable archive | `zip-artifact: true` | Packs the artifact directory into a zip (named from `artifact-name`) before upload. |
 | Any file type in command mode | `file-pattern` | Defaults to `*.html`. Set to e.g. `*.md` or `*.html *.json` to index other files. |
+| Many settings to share | `config` | JSON or simple YAML file. Keys match input names. Explicit `with:` values win. |
 
 ## Real-world example
 
@@ -131,6 +153,7 @@ Set `command`, or `templates`, or both `input` and `output`. The action writes `
 | --- | --- | --- | --- |
 | `command` | no | empty | Command mode. Shell command run after install. Ignores `templates`, `input`, `output`, `build-command`, `build-script`, `validate-command`, `validate-script` and `extra-args`. Needs `artifact-directory`. |
 | `file-pattern` | no | `*.html` | Glob (or space-separated globs) used to index files in command mode. Defaults keep existing email behavior. Example: `*.md` or `*.html *.json`. |
+| `config` | no | empty | Path to a JSON or simple YAML file whose keys match action inputs. Explicit `with:` values always win; the file fills in anything still at its default. Relative to `working-directory`. |
 | `templates` | no | empty | Multiline `input:output` pairs, relative to `working-directory`. Blank lines and `#` lines are skipped. Paths must not contain a colon. Ignored when `command` is set. |
 | `input` | no | empty | Single source path, relative to `working-directory` |
 | `output` | no | empty | Single HTML path, relative to `working-directory` |

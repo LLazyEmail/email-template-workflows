@@ -34,8 +34,20 @@ JOB_SUMMARY=${JOB_SUMMARY:-true}
 PRODUCT_NAME=${PRODUCT_NAME:-emails}
 COMMENT_HEADING=${COMMENT_HEADING:-}
 FILE_PATTERN=${FILE_PATTERN:-*.html}
+CONFIG=${CONFIG:-}
 OUT=${GITHUB_OUTPUT:-/dev/null}
 SUMMARY=${GITHUB_STEP_SUMMARY:-/dev/null}
+
+# Optional config file. Explicit environment / action inputs win.
+# load-config.js prints shell assignments only for keys still at default.
+if [ -n "$CONFIG" ]; then
+  script_dir=$(cd "$(dirname "$0")" && pwd)
+  assignments=$(node "$script_dir/load-config.js" "$CONFIG")
+  if [ -n "$assignments" ]; then
+    # shellcheck disable=SC1090
+    eval "$assignments"
+  fi
+fi
 
 case "$SIZE_LIMIT_KB" in
   '' | *[!0-9]*)

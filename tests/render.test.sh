@@ -277,6 +277,44 @@ new_project
 render SINGLE_INPUT=src/newsletter.md SINGLE_OUTPUT=generated/n.html SIZE_LIMIT_KB=abc
 assert_eq "non-numeric size-limit-kb is rejected" 1 "$RC"
 
+echo "render.sh: config file"
+
+new_project
+cat > "$PROJ/config.yml" << 'EOF'
+product-name: docs
+size-limit-kb: 0
+EOF
+render CONFIG=config.yml SINGLE_INPUT=src/newsletter.md SINGLE_OUTPUT=generated/n.html VALIDATE_SCRIPT=
+assert_eq "config file supplies product-name" 0 "$RC"
+assert_contains "config product-name appears in index" "$PROJ/generated/index.html" "Rendered docs"
+
+new_project
+cat > "$PROJ/config.yml" << 'EOF'
+product-name: docs
+EOF
+render CONFIG=config.yml PRODUCT_NAME=letters SINGLE_INPUT=src/newsletter.md SINGLE_OUTPUT=generated/n.html VALIDATE_SCRIPT=
+assert_eq "explicit env wins over config" 0 "$RC"
+assert_contains "explicit product-name wins" "$PROJ/generated/index.html" "Rendered letters"
+
+new_project
+cat > "$PROJ/config.json" << 'EOF'
+{"product-name": "components"}
+EOF
+render CONFIG=config.json SINGLE_INPUT=src/newsletter.md SINGLE_OUTPUT=generated/n.html VALIDATE_SCRIPT=
+assert_eq "JSON config works" 0 "$RC"
+assert_contains "JSON config product-name" "$PROJ/generated/index.html" "Rendered components"
+
+new_project
+render CONFIG=missing.yml SINGLE_INPUT=src/newsletter.md SINGLE_OUTPUT=generated/n.html
+assert_eq "missing config file fails" 1 "$RC"
+assert_contains "missing config is explained" "$LOG" "config file not found"
+
+new_project
+printf 'this is not a key value line\n' > "$PROJ/bad.yml"
+render CONFIG=bad.yml SINGLE_INPUT=src/newsletter.md SINGLE_OUTPUT=generated/n.html
+assert_eq "invalid config file fails" 1 "$RC"
+assert_contains "invalid config is explained" "$LOG" "not key: value"
+
 echo "render.sh: package managers"
 
 for pm in npm pnpm yarn bun; do
