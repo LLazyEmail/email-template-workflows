@@ -243,7 +243,7 @@ new_project
 printf 'x' > "$PROJ/src/a&b.md"
 render SINGLE_INPUT='src/a&b.md' SINGLE_OUTPUT='generated/a&b.html' VALIDATE_SCRIPT=
 assert_eq "an ampersand in a file name renders" 0 "$RC"
-assert_contains "index.html escapes &" "$PROJ/generated/index.html" 'a&b.html'
+assert_contains "index.html escapes &" "$PROJ/generated/index.html" 'a&amp;b.html'
 
 # < and > are not allowed in Windows file names (Git Bash maps them to other
 # characters instead of failing), so only test them on Unix.
@@ -255,7 +255,7 @@ esac
 if [ "$windows" = false ] && printf 'x' > "$PROJ/src/a<b>.md" 2> /dev/null; then
   render SINGLE_INPUT='src/a<b>.md' SINGLE_OUTPUT='generated/a<b>.html' VALIDATE_SCRIPT=
   assert_eq "angle brackets in a file name render" 0 "$RC"
-  assert_contains "index.html escapes < and >" "$PROJ/generated/index.html" 'a<b>.html'
+  assert_contains "index.html escapes < and >" "$PROJ/generated/index.html" 'a&lt;b&gt;.html'
 else
   echo "  skip angle brackets (not usable in file names here)"
 fi
@@ -292,9 +292,9 @@ new_project
 cat > "$PROJ/config.yml" << 'EOF'
 product-name: docs
 EOF
-render CONFIG=config.yml PRODUCT_NAME=emails SINGLE_INPUT=src/newsletter.md SINGLE_OUTPUT=generated/n.html VALIDATE_SCRIPT=
+render CONFIG=config.yml PRODUCT_NAME=letters SINGLE_INPUT=src/newsletter.md SINGLE_OUTPUT=generated/n.html VALIDATE_SCRIPT=
 assert_eq "explicit env wins over config" 0 "$RC"
-assert_contains "explicit product-name wins" "$PROJ/generated/index.html" "Rendered emails"
+assert_contains "explicit product-name wins" "$PROJ/generated/index.html" "Rendered letters"
 
 new_project
 cat > "$PROJ/config.json" << 'EOF'
@@ -310,7 +310,7 @@ assert_eq "missing config file fails" 1 "$RC"
 assert_contains "missing config is explained" "$LOG" "config file not found"
 
 new_project
-printf 'not: valid: yaml: here\n' > "$PROJ/bad.yml"
+printf 'this is not a key value line\n' > "$PROJ/bad.yml"
 render CONFIG=bad.yml SINGLE_INPUT=src/newsletter.md SINGLE_OUTPUT=generated/n.html
 assert_eq "invalid config file fails" 1 "$RC"
 assert_contains "invalid config is explained" "$LOG" "not key: value"
