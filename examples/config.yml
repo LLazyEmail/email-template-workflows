@@ -1,0 +1,7 @@
+# Example config for LLazyEmail/email-template-workflows
+# Keys match action inputs. Explicit with: values in the workflow always win.
+product-name: docs
+file-pattern: "*.md"
+size-limit-kb: 0
+command: npm run build:docs
+artifact-directory: dist
