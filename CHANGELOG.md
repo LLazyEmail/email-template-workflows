@@ -2,6 +2,12 @@
 
 All notable changes to `LLazyEmail/email-template-workflows` are listed here.
 
+## [2.7.0] - 2026-11-01
+
+### Added
+
+- `config` input: path to a JSON or simple YAML file whose keys match action inputs. Explicit `with:` values always win; the file fills in the rest. Reduces long flag lists for non-email and multi-project use.
+
 ## [2.6.0] - 2026-10-31
 
 ### Added
@@ -106,6 +112,7 @@ All notable changes to `LLazyEmail/email-template-workflows` are listed here.
 ### Removed
 - `example-workflow.yml` at the repository root. It posted its own comment on top of the built-in one. Use `examples/` instead.
 
+[2.7.0]: https://github.com/LLazyEmail/email-template-workflows/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/LLazyEmail/email-template-workflows/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/LLazyEmail/email-template-workflows/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/LLazyEmail/email-template-workflows/compare/v2.3.0...v2.4.0
