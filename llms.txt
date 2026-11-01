@@ -20,6 +20,7 @@ Pin to the floating major tag `@v1`. It tracks the latest `v1.x` release. Minima
 - Script mode: set `input` + `output`, or a multiline `templates` (`input:output` per line). The Action runs `<package-manager> run <build-script>` with the input and output paths (and `extra-args`) for each pair. Change how the paths are passed with `input-flag` / `output-flag` (`--src`, `--src=`, or empty for positional). `EMAIL_TEMPLATE_INPUT` and `EMAIL_TEMPLATE_OUTPUT` are always set.
 - Build-command mode: set `build-command` plus `templates` (or `input` + `output`). The Action runs that shell command once per template, with the paths in `$EMAIL_TEMPLATE_INPUT` and `$EMAIL_TEMPLATE_OUTPUT`. Use it for MJML, Maizzle, pandoc or a script in any language.
 - Command mode: set `command` and `artifact-directory`. The Action runs the shell command as-is (no flags appended) and indexes the `*.html` files (any depth) in `artifact-directory`. `command` overrides every other render input.
+- Config file: set `config` to a JSON or simple YAML file whose keys match action inputs. Explicit `with:` values always win; the file fills in anything still at its default. Relative to `working-directory`. See `examples/config.yml`.
 
 The package manager is detected (`package-manager: auto`) from the `packageManager` field, then the lockfile in `working-directory` or its parents, then npm. `fail-fast: false` renders the remaining templates after a failure and fails the job at the end. `comment-key` gives a call its own pull request comment. A job summary and a Gmail-clipping size warning (`size-limit-kb`) are on by default.
 
@@ -34,6 +35,7 @@ The package manager is detected (`package-manager: auto`) from the `packageManag
 
 - [Real consumer: matrix of 15 templates (script mode)](https://raw.githubusercontent.com/LLazyEmail/_playing_with_lit/refs/heads/main/.github/workflows/render-email-action.yml): used in `LLazyEmail/_playing_with_lit`
 - [Real-world walkthrough](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/docs/real-world-example.md): explains the consumer workflow above line by line
+- [Config file](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/examples/config.yml): JSON or simple YAML whose keys match inputs
 - [Single template](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/examples/script-mode-single.yml)
 - [Several templates via `templates:`](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/examples/script-mode-templates.yml)
 - [Catalog engine via `command:`](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/examples/command-mode.yml)
