@@ -113,6 +113,7 @@ artifact-directory: dist
 ## For AI agents and LLM tools
 
 - [`docs/agent-playbook.md`](docs/agent-playbook.md): start here. Inspect the repository, choose a mode, write the workflow, verify. Copy-paste recipes and a table that maps log messages to fixes.
+- [`docs/keeping-consumers-up-to-date.md`](docs/keeping-consumers-up-to-date.md): consumer-side Renovate/Dependabot bumps (no cross-repo `CASCADE_TOKEN`).
 - [`llms.txt`](llms.txt): short index of this repository for LLMs.
 - [`AGENTS.md`](AGENTS.md): decision rules, input precedence, gotchas and a verification checklist for agents that add this Action to a repository.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md): local checks, commit trailer, and `.changelog/` entry format for changes in this repository.
@@ -246,6 +247,9 @@ Pin `@v2` if you want no changes. For v3:
 3. Set `size-limit-kb: 102` if you still want the Gmail clipping warning.
 4. Set `artifact-name: rendered-email` if something downstream expects that name.
 5. Prefer `file-path` and `file-count`. `html-*` remain as aliases.
+
+Consumers should receive future bumps through **their own** Renovate or Dependabot
+config, not a cross-repo cascade. See [Keeping consumers up to date](docs/keeping-consumers-up-to-date.md).
 
 ## Development
 

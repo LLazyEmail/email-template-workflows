@@ -144,5 +144,5 @@ A non-zero build, validation or command exits with an `::error::` annotation. Th
   `Co-authored-by: petroved <arthur.tkachenko.netweight@gmail.com>`
 - Unit tests CI on Node 22 and 24 across ubuntu/macOS/windows.
 - Docs: extend or annotate; do not delete existing docs content.
-- Cascade bumps need repo secret `CASCADE_TOKEN` (see workflow header comments).
+- Consumer Action bumps use each repo’s Renovate/Dependabot — see `docs/keeping-consumers-up-to-date.md`. Do not add `CASCADE_TOKEN` for this Action.
 

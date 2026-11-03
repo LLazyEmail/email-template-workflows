@@ -27,6 +27,7 @@ The package manager is detected (`package-manager: auto`) from the `packageManag
 ## Docs
 
 - [Agent playbook](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/docs/agent-playbook.md): start here when adding this Action to a repository. Inspect, choose a mode, write the workflow, verify; copy-paste recipes; a table from log messages to fixes; hard rules
+- [Keeping consumers up to date](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/docs/keeping-consumers-up-to-date.md): Renovate/Dependabot on each consumer; no CASCADE_TOKEN; tag semantics; breaking-major FAQ
 - [README](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/README.md): overview, usage, full inputs table, outputs, behavior notes
 - [AGENTS.md](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/AGENTS.md): decision rules, input precedence, gotchas, and a checklist for agents wiring this Action into a repository
 - [action.yml](https://raw.githubusercontent.com/LLazyEmail/email-template-workflows/main/action.yml): the source of truth for inputs, outputs, defaults, and implementation
