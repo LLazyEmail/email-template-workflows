@@ -71,12 +71,11 @@ rel() {
   node -e 'console.log(require("path").relative(process.argv[1],process.argv[2]).split("\\").join("/"))' "$1" "$2"
 }
 
-# HTML-escape $1. Argument form, not stdin: piping into node -e is unreliable
-# across Node versions (the event loop can exit before stdin is read).
-# Entities are built at runtime so the source never contains the literal
-# sequences (avoids tools that unescape them when the file is written).
+# HTML-escape $1. With node -e, argv[1] is the script itself, so the value
+# is argv[2]. Entities are built at runtime so the source never contains the
+# literal sequences.
 esc() {
-  node -e 'const a=String.fromCharCode(38);const s=process.argv[1]||"";process.stdout.write(s.replace(/&/g,a+"amp;").replace(/</g,a+"lt;").replace(/>/g,a+"gt;").replace(/"/g,a+"quot;"))' "$1"
+  node -e 'const a=String.fromCharCode(38);const s=process.argv[2]||"";process.stdout.write(s.replace(/&/g,a+"amp;").replace(/</g,a+"lt;").replace(/>/g,a+"gt;").replace(/"/g,a+"quot;"))' -- "$1"
 }
 
 trim() {
