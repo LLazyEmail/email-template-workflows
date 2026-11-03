@@ -1,10 +1,10 @@
 # email-template-workflows
 
-Reusable GitHub Action that installs your project's dependencies, renders email HTML with **whatever you already use** (an npm script, MJML, Maizzle, pandoc, a catalog CLI), uploads a browsable artifact, writes a job summary, and on a pull request posts or updates one comment.
+Reusable GitHub Action that installs your project's dependencies, renders static files with **whatever you already use** (an npm script, MJML, Maizzle, pandoc, a catalog CLI), uploads a browsable artifact, writes a job summary, and on a pull request posts or updates one comment.
 
 Works with **npm, yarn, pnpm and bun**, on Linux, macOS and Windows runners, in single-package repositories and monorepos.
 
-Pin `LLazyEmail/email-template-workflows@v1`. That floating major tag tracks the latest `v1.x` release. Immutable patch tags stay where they were published. For the strongest supply-chain guarantee, pin the full commit SHA of a release instead and keep it current with Renovate or Dependabot.
+**v3** is the generic major. Pin `LLazyEmail/email-template-workflows@v3` for the neutral defaults. Pin `@v2` to keep the old email defaults (`product-name: emails`, `size-limit-kb: 102`, `artifact-name: rendered-email`).
 
 ## Quick start
 
@@ -19,7 +19,7 @@ permissions:
 
 steps:
   - uses: actions/checkout@v7
-  - uses: LLazyEmail/email-template-workflows@v1
+  - uses: LLazyEmail/email-template-workflows@v3
     with:
       working-directory: .
       command: npx generate-template --all --out=generated
@@ -31,7 +31,7 @@ steps:
 ```yaml
 steps:
   - uses: actions/checkout@v7
-  - uses: LLazyEmail/email-template-workflows@v1
+  - uses: LLazyEmail/email-template-workflows@v3
     with:
       working-directory: .
       build-script: build-email
@@ -40,18 +40,18 @@ steps:
       validate-script: ""
 ```
 
-**Build-command mode**: you have a tool that is not an npm script (MJML, pandoc, a Python script...). The action runs your command once per template and hands it the paths as environment variables.
+**Build-command mode**: you have a tool that is not an npm script (MJML, pandoc, a Python script...). The action runs your command once per file and hands it the paths as environment variables.
 
 ```yaml
 steps:
   - uses: actions/checkout@v7
-  - uses: LLazyEmail/email-template-workflows@v1
+  - uses: LLazyEmail/email-template-workflows@v3
     with:
       working-directory: .
       templates: |
         emails/welcome.mjml:dist/welcome.html
         emails/invoice.mjml:dist/invoice.html
-      build-command: npx mjml "$EMAIL_TEMPLATE_INPUT" -o "$EMAIL_TEMPLATE_OUTPUT"
+      build-command: npx mjml "$FILE_INPUT" -o "$FILE_OUTPUT"
       validate-script: ""
       artifact-directory: dist
 ```
@@ -61,18 +61,17 @@ steps:
 ```yaml
 steps:
   - uses: actions/checkout@v7
-  - uses: LLazyEmail/email-template-workflows@v1
+  - uses: LLazyEmail/email-template-workflows@v3
     with:
       working-directory: .
-      config: .email-template-workflows.yml
+      config: .render-config.yml
 ```
 
-`.email-template-workflows.yml`:
+`.render-config.yml`:
 
 ```yaml
 product-name: docs
 file-pattern: "*.md"
-size-limit-kb: 0
 command: npm run build:docs
 artifact-directory: dist
 ```
@@ -85,17 +84,17 @@ artifact-directory: dist
 | A monorepo | `working-directory` | Lockfile and `packageManager` are found in parent folders. `cache: auto` caches from the root lockfile. |
 | A build script that takes `--input` and `--output` | `build-script` | The default style. |
 | A script with other argument names | `input-flag`, `output-flag` | `--src` passes `--src <path>`, `--src=` passes `--src=<path>`, empty passes the path positionally. |
-| A script that reads environment variables | nothing | `EMAIL_TEMPLATE_INPUT` and `EMAIL_TEMPLATE_OUTPUT` are always set. |
-| A CLI that is not an npm script | `build-command` | Runs once per template. |
+| A script that reads environment variables | nothing | `FILE_INPUT` and `FILE_OUTPUT` are always set. `EMAIL_TEMPLATE_*` are also set for older builds. |
+| A CLI that is not an npm script | `build-command` | Runs once per file. |
 | A CLI that renders a whole folder | `command` | Runs once; every file matching `file-pattern` (default `*.html`) under `artifact-directory` is indexed. |
 | Shared code to build first | `prebuild-command` | Runs after install, before rendering, in every mode. |
 | A private registry | `registry-url`, `registry-scope` | Authenticate with `NODE_AUTH_TOKEN` in the job's `env`. |
 | A Node version file | `node-version-file` | `.nvmrc`, `.node-version` or `.tool-versions`. |
-| One broken template among many | `fail-fast: false` | Renders the rest, uploads and comments, then fails the job. |
-| Two sets of emails in one pull request | `comment-key` | Each key gets its own comment. |
+| One broken file among many | `fail-fast: false` | Renders the rest, uploads and comments, then fails the job. |
+| Two sets of files in one pull request | `comment-key` | Each key gets its own comment. |
 | No pull request (schedule, push) | `pr-comment: false` | The job summary and the artifact still list everything. |
-| Gmail clipping | `size-limit-kb` | Warns when a file is over the limit (default 102 KB). Uses email-specific wording only when `product-name` is `emails`. |
-| Non-email projects | `product-name` | Defaults to `emails`. Set to e.g. `docs` or `components` so headings and comments match your project. |
+| A size limit | `size-limit-kb` | Default `0` (off). Set `102` and `product-name: emails` for the old Gmail clipping warning. |
+| Any product | `product-name` | Defaults to `files`. Set `emails`, `docs`, `components`, and so on. |
 | A single downloadable archive | `zip-artifact: true` | Packs the artifact directory into a zip (named from `artifact-name`) before upload. |
 | Any file type in command mode | `file-pattern` | Defaults to `*.html`. Set to e.g. `*.md` or `*.html *.json` to index other files. |
 | Many settings to share | `config` | JSON or simple YAML file. Keys match input names. Explicit `with:` values win. |
@@ -131,17 +130,17 @@ permissions:
 
 steps:
   - uses: actions/checkout@v7
-  - uses: LLazyEmail/email-template-workflows@v1
+  - uses: LLazyEmail/email-template-workflows@v3
     with:
       working-directory: .
       command: npx generate-template --all --out=generated
       artifact-directory: generated
-      artifact-name: rendered-email
+      artifact-name: rendered
 ```
 
 The artifact is a directory; the comment links the run and tells you to open `index.html`. `index.html` lists every rendered file with its size. With `zip-artifact: true` the directory also contains a zip of everything, named after `artifact-name`.
 
-The comment heading is `### Rendered emails` (or `### Rendered <product-name>`). A later run updates the existing bot comment instead of adding another one. It also replaces an older `### Sandbox HTML` or fixture comment. With `comment-key` the heading is `### Rendered emails (<key>)` and each key is tracked separately. Override the whole heading with `comment-heading`.
+The comment heading is `### Rendered files` (or `### Rendered <product-name>`). A later run updates the existing bot comment instead of adding another one. It also adopts an older `<!-- email-template-workflows -->` comment or a legacy heading such as `### Rendered emails`. With `comment-key` the heading is `### Rendered <product-name> (<key>)` and each key is tracked separately. Override the whole heading with `comment-heading`.
 
 ## Inputs
 
@@ -152,26 +151,26 @@ Set `command`, or `templates`, or both `input` and `output`. The action writes `
 | Input | Required | Default | Meaning |
 | --- | --- | --- | --- |
 | `command` | no | empty | Command mode. Shell command run after install. Ignores `templates`, `input`, `output`, `build-command`, `build-script`, `validate-command`, `validate-script` and `extra-args`. Needs `artifact-directory`. |
-| `file-pattern` | no | `*.html` | Glob (or space-separated globs) used to index files in command mode. Defaults keep existing email behavior. Example: `*.md` or `*.html *.json`. |
+| `file-pattern` | no | `*.html` | Glob (or space-separated globs) used to index files in command mode. Example: `*.md` or `*.html *.json`. |
 | `config` | no | empty | Path to a JSON or simple YAML file whose keys match action inputs. Explicit `with:` values always win; the file fills in anything still at its default. Relative to `working-directory`. |
 | `templates` | no | empty | Multiline `input:output` pairs, relative to `working-directory`. Blank lines and `#` lines are skipped. Paths must not contain a colon. Ignored when `command` is set. |
 | `input` | no | empty | Single source path, relative to `working-directory` |
-| `output` | no | empty | Single HTML path, relative to `working-directory` |
+| `output` | no | empty | Single output path, relative to `working-directory` |
 
-### How to render each template
+### How to render each file
 
 | Input | Required | Default | Meaning |
 | --- | --- | --- | --- |
-| `build-command` | no | empty | Shell command run once per template, with `$EMAIL_TEMPLATE_INPUT` and `$EMAIL_TEMPLATE_OUTPUT` set. Takes precedence over `build-script`. |
-| `build-script` | no | `build-email` | `package.json` script that compiles one email. Called with the input and output paths and `extra-args`. |
+| `build-command` | no | empty | Shell command run once per file, with `$FILE_INPUT` and `$FILE_OUTPUT` set (and the legacy `$EMAIL_TEMPLATE_*`). Takes precedence over `build-script`. |
+| `build-script` | no | `build-email` | `package.json` script that compiles one file. Called with the input and output paths and `extra-args`. |
 | `input-flag` | no | `--input` | How the input path is passed to `build-script`: `--input` is `--input <path>`, `--input=` is `--input=<path>`, empty is positional. |
 | `output-flag` | no | `--output` | How the output path is passed. Same styles as `input-flag`. |
-| `extra-args` | no | empty | Appended after the input and output for every template. Split on whitespace, never glob-expanded. Do not put values with spaces in it. `build-script` only. |
-| `validate-command` | no | empty | Shell command run after each template is built, with `$EMAIL_TEMPLATE_OUTPUT` set. Non-zero fails that template. Takes precedence over `validate-script`. |
+| `extra-args` | no | empty | Appended after the input and output for every file. Split on whitespace, never glob-expanded. Do not put values with spaces in it. `build-script` only. |
+| `validate-command` | no | empty | Shell command run after each file is built, with `$FILE_OUTPUT` set. Non-zero fails that file. Takes precedence over `validate-script`. |
 | `validate-script` | no | `validate-email` | `package.json` script that validates one compiled file. Empty skips validation. If the script is not defined in `package.json`, validation is skipped with a warning. |
 | `validate-flag` | no | `--file` | How the compiled file is passed to `validate-script`. Same styles as `input-flag`. |
-| `fail-fast` | no | `true` | `true` stops at the first failing template. `false` renders the rest, uploads, comments, then fails the job at the end. |
-| `size-limit-kb` | no | `102` | Warn when a rendered file is larger than this many KB. When `product-name` is `emails` the warning mentions Gmail clipping; otherwise it is generic. `0` disables the check. |
+| `fail-fast` | no | `true` | `true` stops at the first failing file. `false` renders the rest, uploads, comments, then fails the job at the end. |
+| `size-limit-kb` | no | `0` | Warn when a rendered file is larger than this many KB. `0` disables the check. When `product-name` is `emails` the warning mentions Gmail clipping. |
 
 ### Where and with what to run
 
@@ -194,14 +193,14 @@ Set `command`, or `templates`, or both `input` and `output`. The action writes `
 
 | Input | Required | Default | Meaning |
 | --- | --- | --- | --- |
-| `upload-artifact` | no | `true` | Upload the HTML directory |
-| `artifact-name` | no | `rendered-email` | Artifact name. Must be unique within a run, so give each matrix job its own. |
+| `upload-artifact` | no | `true` | Upload the rendered directory |
+| `artifact-name` | no | `rendered` | Artifact name. Must be unique within a run, so give each matrix job its own. |
 | `artifact-directory` | no | empty | Directory to index and upload, relative to `working-directory`. Empty uses the directory of the first rendered file. Required when `command` is set. |
 | `retention-days` | no | `14` | Days to keep the uploaded artifact |
 | `job-summary` | no | `true` | Write the rendered files and their sizes to the job summary. Needs no token permission. |
 | `pr-comment` | no | `true` | Post or update the pull request comment. No-op unless the event is `pull_request`. Skipped for forks. A read-only token logs a warning instead of failing. |
 | `comment-key` | no | empty | Gives this call its own comment, so several calls in one pull request do not overwrite each other. |
-| `product-name` | no | `emails` | Human-readable name used in the index title, job summary, and PR comment. Defaults keep existing email behavior. |
+| `product-name` | no | `files` | Human-readable name used in the index title, job summary, and PR comment. |
 | `comment-heading` | no | empty | Full override of the PR comment heading. Empty uses `### Rendered <product-name>`. |
 | `zip-artifact` | no | `false` | When true, pack the artifact directory into a zip (named from `artifact-name`) before upload. The zip is included in the uploaded directory. |
 
@@ -209,32 +208,44 @@ Set `command`, or `templates`, or both `input` and `output`. The action writes `
 
 | Output | Meaning |
 | --- | --- |
-| `html-path` | Path to the first generated HTML file, relative to the workspace |
-| `html-count` | Number of HTML files rendered |
-| `file-path` | Alias of `html-path`. Preferred name for non-email use. |
-| `file-count` | Alias of `html-count`. Preferred name for non-email use. |
-| `failed-count` | Number of templates that failed. Always `0` unless `fail-fast` is `false`. |
+| `file-path` | Path to the first generated file, relative to the workspace. Preferred name. |
+| `file-count` | Number of files rendered. Preferred name. |
+| `html-path` | Alias of `file-path`. Kept for existing workflows. |
+| `html-count` | Alias of `file-count`. Kept for existing workflows. |
+| `failed-count` | Number of files that failed. Always `0` unless `fail-fast` is `false`. |
 | `artifact-dir` | The directory that was indexed and uploaded, relative to the workspace |
 | `artifact-url` | Link to the uploaded artifact. Empty when `upload-artifact` is not `true`. |
 | `package-manager` | The package manager that was used: `npm`, `yarn`, `pnpm` or `bun` |
 
 ## What your build receives
 
-For every template, in `build-script`, `build-command`, `validate-script` and `validate-command`:
+For every file, in `build-script`, `build-command`, `validate-script` and `validate-command`:
 
 | Variable | Value |
 | --- | --- |
-| `EMAIL_TEMPLATE_INPUT` | The input path, relative to `working-directory` |
-| `EMAIL_TEMPLATE_OUTPUT` | The output path, relative to `working-directory` |
+| `FILE_INPUT` | The input path, relative to `working-directory` |
+| `FILE_OUTPUT` | The output path, relative to `working-directory` |
+| `EMAIL_TEMPLATE_INPUT` | Same as `FILE_INPUT`. Kept so existing builds keep working. |
+| `EMAIL_TEMPLATE_OUTPUT` | Same as `FILE_OUTPUT`. Kept so existing builds keep working. |
 
 Your own `env:` on the job is passed through as usual, so secrets such as `NODE_AUTH_TOKEN` or `GITHUB_TOKEN` reach the install and the build.
 
 ## Failure handling
 
-- A template that fails to build, fails validation, or writes an empty file fails the job with an error annotation naming it. The annotation also includes the first cause line from the command (for example `error TS2307: Cannot find module ...`), and the failure block reprints that cause plus the last lines of the command.
-- With `fail-fast: false` the other templates still render. The artifact, the job summary and the pull request comment are produced, then the job fails. `failed.txt` in the artifact and a **Failed to render** section in the comment list what broke.
-- If every template fails there is nothing to publish and the job fails immediately.
+- A file that fails to build, fails validation, or writes an empty file fails the job with an error annotation naming it. The annotation also includes the first cause line from the command (for example `error TS2307: Cannot find module ...`), and the failure block reprints that cause plus the last lines of the command.
+- With `fail-fast: false` the other files still render. The artifact, the job summary and the pull request comment are produced, then the job fails. `failed.txt` in the artifact and a **Failed to render** section in the comment list what broke.
+- If every file fails there is nothing to publish and the job fails immediately.
 - A file over `size-limit-kb` produces a warning annotation, not a failure. The wording is email-specific only when `product-name` is `emails`.
+
+## Upgrading from v2
+
+Pin `@v2` if you want no changes. For v3:
+
+1. Prefer `$FILE_INPUT` / `$FILE_OUTPUT` in new build commands. The old names still work.
+2. Set `product-name: emails` if you still want email wording.
+3. Set `size-limit-kb: 102` if you still want the Gmail clipping warning.
+4. Set `artifact-name: rendered-email` if something downstream expects that name.
+5. Prefer `file-path` and `file-count`. `html-*` remain as aliases.
 
 ## Development
 
@@ -251,6 +262,6 @@ Every `uses:` in this repository is pinned to a full commit SHA with a version c
 
 ## Consumer contract
 
-The action detects the package manager and runs `install-command` (default `<package-manager> install`) inside `working-directory`. Without `command`, it then renders each template with `build-command` if set, otherwise with `<package-manager> run <build-script>` and the input and output paths. With `command`, it runs that shell command once and indexes `artifact-directory`.
+The action detects the package manager and runs `install-command` (default `<package-manager> install`) inside `working-directory`. Without `command`, it then renders each file with `build-command` if set, otherwise with `<package-manager> run <build-script>` and the input and output paths. With `command`, it runs that shell command once and indexes `artifact-directory`.
 
 [`_playing_with_lit`](https://github.com/LLazyEmail/_playing_with_lit) already uses script mode with `--input` and `--output`.
