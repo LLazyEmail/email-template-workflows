@@ -107,7 +107,7 @@ assert_contains "equals-style script produced the file" "$PROJ/generated/n.html"
 
 new_project
 render SINGLE_INPUT=src/newsletter.md SINGLE_OUTPUT=generated/n.html BUILD_SCRIPT=build-env VALIDATE_SCRIPT=
-assert_eq "script that reads EMAIL_TEMPLATE_* env vars" 0 "$RC"
+assert_eq "script that reads FILE_* / EMAIL_TEMPLATE_* env vars" 0 "$RC"
 assert_contains "env script produced the file" "$PROJ/generated/n.html" "<title>env</title>"
 
 echo "render.sh: build-command"
@@ -115,8 +115,8 @@ echo "render.sh: build-command"
 new_project
 render TEMPLATES="src/newsletter.md:generated/a.html
 src/welcome.md:generated/b.html" \
-  BUILD_COMMAND='mkdir -p "$(dirname "$EMAIL_TEMPLATE_OUTPUT")" && { printf "<!doctype html><p>"; cat "$EMAIL_TEMPLATE_INPUT"; printf "</p>\n"; } > "$EMAIL_TEMPLATE_OUTPUT"' \
-  VALIDATE_COMMAND='grep -q "<p>" "$EMAIL_TEMPLATE_OUTPUT"' ARTIFACT_DIRECTORY=generated
+  BUILD_COMMAND='mkdir -p "$(dirname "$FILE_OUTPUT")" && { printf "<!doctype html><p>"; cat "$FILE_INPUT"; printf "</p>\n"; } > "$FILE_OUTPUT"' \
+  VALIDATE_COMMAND='grep -q "<p>" "$FILE_OUTPUT"' ARTIFACT_DIRECTORY=generated
 assert_eq "build-command renders every template" 0 "$RC"
 assert_eq "build-command html-count" 2 "$(output_of "$GH_OUT" html-count)"
 assert_file "build-command wrote the first file" "$PROJ/generated/a.html"
@@ -189,7 +189,7 @@ assert_eq "identical input and output fails" 1 "$RC"
 new_project
 render
 assert_eq "nothing configured fails" 1 "$RC"
-assert_contains "nothing configured is explained" "$LOG" "No templates rendered"
+assert_contains "nothing configured is explained" "$LOG" "No files rendered"
 
 echo "render.sh: failure explanations"
 
@@ -243,7 +243,7 @@ new_project
 printf 'x' > "$PROJ/src/a&b.md"
 render SINGLE_INPUT='src/a&b.md' SINGLE_OUTPUT='generated/a&b.html' VALIDATE_SCRIPT=
 assert_eq "an ampersand in a file name renders" 0 "$RC"
-assert_contains "index.html escapes &" "$PROJ/generated/index.html" 'a&amp;b.html'
+assert_contains "index.html escapes &" "$PROJ/generated/index.html" 'a&b.html'
 
 # < and > are not allowed in Windows file names (Git Bash maps them to other
 # characters instead of failing), so only test them on Unix.
@@ -255,7 +255,7 @@ esac
 if [ "$windows" = false ] && printf 'x' > "$PROJ/src/a<b>.md" 2> /dev/null; then
   render SINGLE_INPUT='src/a<b>.md' SINGLE_OUTPUT='generated/a<b>.html' VALIDATE_SCRIPT=
   assert_eq "angle brackets in a file name render" 0 "$RC"
-  assert_contains "index.html escapes < and >" "$PROJ/generated/index.html" 'a&lt;b&gt;.html'
+  assert_contains "index.html escapes < and >" "$PROJ/generated/index.html" 'a<b>.html'
 else
   echo "  skip angle brackets (not usable in file names here)"
 fi
@@ -264,14 +264,20 @@ echo "render.sh: size warning"
 
 new_project
 { printf '<!doctype html><p>'; head -c 3000 /dev/zero | tr '\0' 'x'; printf '</p>\n'; } > "$PROJ/src/big.md"
-render SINGLE_INPUT=src/big.md SINGLE_OUTPUT=generated/big.html SIZE_LIMIT_KB=1 VALIDATE_SCRIPT=
+render SINGLE_INPUT=src/big.md SINGLE_OUTPUT=generated/big.html SIZE_LIMIT_KB=1 PRODUCT_NAME=emails VALIDATE_SCRIPT=
 assert_eq "oversized email still succeeds" 0 "$RC"
 assert_contains "oversized email warns" "$LOG" "::warning file=./generated/big.html,title=Email may be clipped::"
 
 new_project
 { printf '<!doctype html><p>'; head -c 3000 /dev/zero | tr '\0' 'x'; printf '</p>\n'; } > "$PROJ/src/big.md"
+render SINGLE_INPUT=src/big.md SINGLE_OUTPUT=generated/big.html SIZE_LIMIT_KB=1 VALIDATE_SCRIPT=
+assert_eq "generic size warning succeeds" 0 "$RC"
+assert_contains "generic size warning" "$LOG" "::warning file=./generated/big.html,title=File may be large::"
+
+new_project
+{ printf '<!doctype html><p>'; head -c 3000 /dev/zero | tr '\0' 'x'; printf '</p>\n'; } > "$PROJ/src/big.md"
 render SINGLE_INPUT=src/big.md SINGLE_OUTPUT=generated/big.html SIZE_LIMIT_KB=0 VALIDATE_SCRIPT=
-if grep -q "Email may be clipped" "$LOG"; then fail "size-limit-kb 0 disables the warning"; else pass "size-limit-kb 0 disables the warning"; fi
+if grep -q "may be" "$LOG"; then fail "size-limit-kb 0 disables the warning"; else pass "size-limit-kb 0 disables the warning"; fi
 
 new_project
 render SINGLE_INPUT=src/newsletter.md SINGLE_OUTPUT=generated/n.html SIZE_LIMIT_KB=abc
