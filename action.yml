@@ -1,8 +1,8 @@
-name: Render Email Template
-description: Build and render one or more email templates into static HTML, with any package manager or build tool
+name: Render Static Artifacts
+description: Build and render one or more source files into static output, with any package manager or build tool
 
 branding:
-  icon: mail
+  icon: package
   color: blue
 
 inputs:
@@ -12,12 +12,12 @@ inputs:
     required: false
     default: ""
   output:
-    description: Path to save a single compiled HTML file, relative to working-directory. Ignored when templates or command is set.
+    description: Path to save a single compiled file, relative to working-directory. Ignored when templates or command is set.
     required: false
     default: ""
   templates:
     description: |
-      One template per line, as input:output, both relative to working-directory.
+      One file per line, as input:output, both relative to working-directory.
       Blank lines and lines starting with # are skipped. Paths must not contain a colon.
       Example:
         src/welcome.md:generated/welcome.html
@@ -27,7 +27,7 @@ inputs:
     default: ""
   command:
     description: |
-      Command mode. Shell command run after install, instead of rendering template by template.
+      Command mode. Shell command run after install, instead of rendering file by file.
       Use it for a catalog engine, for example `npx generate-template --all --out=generated` or `npm run sandbox`.
       Set artifact-directory to the folder the command writes. Overrides templates, input, output,
       build-command, build-script, validate-command, validate-script and extra-args.
@@ -37,8 +37,7 @@ inputs:
   file-pattern:
     description: |
       Glob (or space-separated globs) used to index files in command mode.
-      Defaults to `*.html` so existing email workflows are unchanged.
-      Example: `*.md` or `*.html *.json`. Only used when `command` is set.
+      Defaults to `*.html`. Example: `*.md` or `*.html *.json`. Only used when `command` is set.
     required: false
     default: "*.html"
 
@@ -51,39 +50,39 @@ inputs:
     required: false
     default: ""
 
-  # --- How to render each template -----------------------------------------
+  # --- How to render each file ----------------------------------------------
   build-command:
     description: |
-      Shell command run once per template, for any tool (MJML, Maizzle, pandoc, a Python script...).
-      The paths are available as $EMAIL_TEMPLATE_INPUT and $EMAIL_TEMPLATE_OUTPUT.
-      Example: `npx mjml "$EMAIL_TEMPLATE_INPUT" -o "$EMAIL_TEMPLATE_OUTPUT"`.
+      Shell command run once per file, for any tool (MJML, Maizzle, pandoc, a Python script...).
+      The paths are available as $FILE_INPUT / $FILE_OUTPUT (and the legacy $EMAIL_TEMPLATE_INPUT / $EMAIL_TEMPLATE_OUTPUT).
+      Example: `npx mjml "$FILE_INPUT" -o "$FILE_OUTPUT"`.
       Takes precedence over build-script. Ignored when command is set.
     required: false
     default: ""
   build-script:
-    description: package.json script that compiles one email. Called with the input, output and extra-args. Ignored when command or build-command is set.
+    description: package.json script that compiles one file. Called with the input, output and extra-args. Ignored when command or build-command is set.
     required: false
     default: build-email
   input-flag:
     description: |
       How the input path is passed to build-script. `--input` passes `--input <path>`, `--input=` passes `--input=<path>`,
-      empty passes the path as a positional argument. $EMAIL_TEMPLATE_INPUT is always set as well.
+      empty passes the path as a positional argument. $FILE_INPUT and $EMAIL_TEMPLATE_INPUT are always set as well.
     required: false
     default: --input
   output-flag:
-    description: How the output path is passed to build-script. Same styles as input-flag. $EMAIL_TEMPLATE_OUTPUT is always set as well.
+    description: How the output path is passed to build-script. Same styles as input-flag. $FILE_OUTPUT and $EMAIL_TEMPLATE_OUTPUT are always set as well.
     required: false
     default: --output
   extra-args:
-    description: Extra arguments appended after the input and output for every template. Split on whitespace; do not put values with spaces in it. Applies to build-script only.
+    description: Extra arguments appended after the input and output for every file. Split on whitespace; do not put values with spaces in it. Applies to build-script only.
     required: false
     default: ""
   validate-command:
-    description: Shell command run after each template is built, with $EMAIL_TEMPLATE_OUTPUT set. A non-zero exit fails that template. Takes precedence over validate-script. Ignored when command is set.
+    description: Shell command run after each file is built, with $FILE_OUTPUT and $EMAIL_TEMPLATE_OUTPUT set. A non-zero exit fails that file. Takes precedence over validate-script. Ignored when command is set.
     required: false
     default: ""
   validate-script:
-    description: package.json script that validates one compiled HTML file. Set empty to skip. If the script is not defined in package.json, validation is skipped with a warning. Ignored when command or validate-command is set.
+    description: package.json script that validates one compiled file. Set empty to skip. If the script is not defined in package.json, validation is skipped with a warning. Ignored when command or validate-command is set.
     required: false
     default: validate-email
   validate-flag:
@@ -91,13 +90,13 @@ inputs:
     required: false
     default: --file
   fail-fast:
-    description: With `true`, the first template that fails stops the job. With `false`, the remaining templates still render, the artifact and comment are produced, and the job fails at the end.
+    description: With `true`, the first file that fails stops the job. With `false`, the remaining files still render, the artifact and comment are produced, and the job fails at the end.
     required: false
     default: "true"
   size-limit-kb:
-    description: Warn when a rendered email is larger than this many kilobytes. Gmail clips messages over about 102 KB. Set 0 to disable.
+    description: Warn when a rendered file is larger than this many kilobytes. Set 0 to disable. Default is 0; set 102 for the old Gmail clipping check.
     required: false
-    default: "102"
+    default: "0"
 
   # --- Where and with what to run -------------------------------------------
   working-directory:
@@ -154,13 +153,13 @@ inputs:
 
   # --- What to publish ------------------------------------------------------
   upload-artifact:
-    description: Upload the rendered HTML (plus index.html) as a workflow artifact
+    description: Upload the rendered files (plus index.html) as a workflow artifact
     required: false
     default: "true"
   artifact-name:
     description: Name of the uploaded artifact. Must be unique within a workflow run, so give each matrix job its own.
     required: false
-    default: rendered-email
+    default: rendered
   artifact-directory:
     description: Directory to index and upload, relative to working-directory. Empty uses the directory of the first rendered file. Required when command is set.
     required: false
@@ -178,13 +177,13 @@ inputs:
     required: false
     default: "true"
   comment-key:
-    description: Optional label that gives this call its own comment, so two calls in one pull request (for example marketing and transactional emails) do not overwrite each other. Empty uses the shared comment.
+    description: Optional label that gives this call its own comment, so two calls in one pull request do not overwrite each other. Empty uses the shared comment.
     required: false
     default: ""
   product-name:
-    description: Human-readable name for what is being rendered (used in headings, index title, and comments). Defaults to "emails" so existing users see no change.
+    description: Human-readable name for what is being rendered (used in headings, index title, and comments). Defaults to "files".
     required: false
-    default: "emails"
+    default: "files"
   comment-heading:
     description: Override the pull request comment heading. Empty uses "### Rendered <product-name>".
     required: false
@@ -200,19 +199,19 @@ inputs:
 
 outputs:
   html-path:
-    description: Path to the first generated HTML file, relative to the workspace
+    description: Alias of file-path. Path to the first generated file, relative to the workspace. Kept for existing workflows.
     value: ${{ steps.render.outputs.html-path }}
   html-count:
-    description: Number of HTML files rendered
+    description: Alias of file-count. Number of files rendered. Kept for existing workflows.
     value: ${{ steps.render.outputs.html-count }}
   file-path:
-    description: Alias of html-path. Path to the first generated file, relative to the workspace. Preferred name for non-email use.
+    description: Path to the first generated file, relative to the workspace. Preferred name.
     value: ${{ steps.render.outputs.file-path }}
   file-count:
-    description: Alias of html-count. Number of files rendered. Preferred name for non-email use.
+    description: Number of files rendered. Preferred name.
     value: ${{ steps.render.outputs.file-count }}
   failed-count:
-    description: Number of templates that failed to render. Always 0 unless fail-fast is false.
+    description: Number of files that failed to render. Always 0 unless fail-fast is false.
     value: ${{ steps.render.outputs.failed-count }}
   artifact-dir:
     description: Directory that was indexed and uploaded, relative to the workspace
@@ -311,7 +310,7 @@ runs:
         echo "prebuild: $PREBUILD_COMMAND"
         bash -c "$PREBUILD_COMMAND"
 
-    - name: Render templates
+    - name: Render files
       id: render
       shell: bash
       working-directory: ${{ inputs.working-directory }}
@@ -349,7 +348,7 @@ runs:
         ZIP_NAME: ${{ inputs.artifact-name }}
       run: bash "$GITHUB_ACTION_PATH/scripts/zip-artifact.sh"
 
-    - name: Upload rendered emails
+    - name: Upload rendered files
       if: ${{ inputs.upload-artifact == 'true' }}
       id: upload
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -379,11 +378,11 @@ runs:
 
     # With fail-fast: false the render step succeeds so the artifact and the
     # comment are still produced. The job is failed here, at the very end.
-    - name: Fail if any template failed
+    - name: Fail if any file failed
       if: ${{ steps.render.outputs.failed-count != '' && steps.render.outputs.failed-count != '0' }}
       shell: bash
       env:
         FAILED_COUNT: ${{ steps.render.outputs.failed-count }}
       run: |
-        echo "::error::$FAILED_COUNT template(s) failed to render. The others were uploaded; failed.txt in the artifact lists the failures."
+        echo "::error::$FAILED_COUNT file(s) failed to render. The others were uploaded; failed.txt in the artifact lists the failures."
         exit 1
