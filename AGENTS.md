@@ -67,6 +67,8 @@ Follow in order and stop at the first match.
 
 Defaults worth knowing: `working-directory=generated`, `package-manager=auto`, `install-command=""` (runs `<pm> install`), `build-script=build-email`, `validate-script=validate-email`, `input-flag=--input`, `output-flag=--output`, `validate-flag=--file`, `node-version=24`, `cache=""` (no cache), `fail-fast=true`, `size-limit-kb=102`, `job-summary=true`, `upload-artifact=true`, `artifact-name=rendered-email`, `retention-days=14`, `pr-comment=true`.
 
+**Config file**: set `config` to a path (relative to `working-directory`) of a JSON or simple YAML file whose keys match action input names. Explicit `with:` values always win; the file fills in anything still at its default. Useful to keep long flag lists out of the workflow. See `examples/config.yml`.
+
 Outputs: `html-path` (first rendered file), `html-count`, `failed-count`, `artifact-dir`, `artifact-url` (empty when `upload-artifact` is not `true`) and `package-manager`.
 
 ## Gotchas (check these before reporting success)
@@ -83,7 +85,7 @@ Outputs: `html-path` (first rendered file), `html-count`, `failed-count`, `artif
 - **Node.js must be on `PATH`** even with `setup-node: false`, because the action uses it to index the output.
 - **Pin `@v1`.** Do not use `@main`. Immutable patch tags (`v1.x.y`) exist when exact reproducibility is needed.
 - **Known limitation, now solvable:** issue #21 tracks Lit scripts that did not accept `--input`/`--output`. Use `input-flag` / `output-flag`, read `EMAIL_TEMPLATE_*` in the script, or use `build-command`.
-- **Failure messages:** when a render, validate, or command step fails, the action prints an `::error::` annotation plus a short block naming the failing template or script, the command that was run, and common next checks. A bare `Process completed with exit code 1` means the failure happened before the render step's own wrapper (for example during install).
+- **`config` fills defaults only.** Explicit `with:` values always win over the file. The file is relative to `working-directory`. Unknown keys are warned and ignored. Invalid files fail the step.
 
 ## Verifying a change
 

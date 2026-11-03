@@ -182,6 +182,27 @@ Install it in a step before the Action. `skip-install: true` skips the Node depe
 
 Node.js must still be on `PATH`, because the Action uses it to index the output. Leave `setup-node` at its default, or install Node yourself and set `setup-node: false`.
 
+### A config file (keep the workflow short)
+
+Put shared or long settings in a JSON or simple YAML file. Explicit `with:` values always win; the file fills in anything still at its default. Path is relative to `working-directory`. See [`examples/config.yml`](../examples/config.yml).
+
+```yaml
+- uses: LLazyEmail/email-template-workflows@v1
+  with:
+    working-directory: .
+    config: .email-template-workflows.yml
+```
+
+`.email-template-workflows.yml`:
+
+```yaml
+product-name: docs
+file-pattern: "*.md"
+size-limit-kb: 0
+command: npm run build:docs
+artifact-directory: dist
+```
+
 ### One command renders everything (a catalog)
 
 ```yaml
