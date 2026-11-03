@@ -259,9 +259,6 @@ if [ "$windows" = false ] && printf 'x' > "$PROJ/src/a<b>.md" 2> /dev/null; then
 else
   echo "  skip angle brackets (not usable in file names here)"
 fi
-else
-  echo "  skip angle brackets (not usable in file names here)"
-fi
 
 echo "render.sh: size warning"
 
