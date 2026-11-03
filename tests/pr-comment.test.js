@@ -77,7 +77,7 @@ function envFor(dir, extra = {}) {
   return {
     GITHUB_SERVER_URL: 'https://github.com',
     ARTIFACT_DIR: dir,
-    ARTIFACT_NAME: 'rendered-email',
+    ARTIFACT_NAME: 'rendered',
     ARTIFACT_URL: 'https://example.test/artifact/1',
     UPLOAD_ARTIFACT: 'true',
     ...extra,
@@ -97,17 +97,23 @@ const human = (id, body) => ({ id, body, user: { type: 'User' } });
     assert.strictEqual(github.state.updated.length, 0);
     const { body, issue_number: issue } = github.state.created[0];
     assert.strictEqual(issue, 7);
-    assert.ok(body.startsWith('<!-- email-template-workflows -->\n### Rendered emails\n'));
+    assert.ok(body.startsWith('<!-- render-static-artifacts -->\n### Rendered files\n'));
     assert.ok(body.includes('- `generated/a.html`'));
     assert.ok(body.includes('https://github.com/o/r/actions/runs/42'));
-    assert.ok(body.includes('[`rendered-email`](https://example.test/artifact/1)'));
+    assert.ok(body.includes('[`rendered`](https://example.test/artifact/1)'));
   });
 
   await test('updates the comment that carries the hidden marker', async () => {
-    const github = mockGithub([bot(5, '<!-- email-template-workflows -->\nold')]);
+    const github = mockGithub([bot(5, '<!-- render-static-artifacts -->\nold')]);
     await run({ github, context, core: makeCore(), env: envFor(artifactDir()) });
     assert.strictEqual(github.state.created.length, 0);
     assert.strictEqual(github.state.updated[0].comment_id, 5);
+  });
+
+  await test('adopts a legacy marker comment', async () => {
+    const github = mockGithub([bot(6, '<!-- email-template-workflows -->\nold')]);
+    await run({ github, context, core: makeCore(), env: envFor(artifactDir()) });
+    assert.strictEqual(github.state.updated[0].comment_id, 6);
   });
 
   await test('adopts a legacy comment without a marker', async () => {
@@ -117,25 +123,25 @@ const human = (id, body) => ({ id, body, user: { type: 'User' } });
   });
 
   await test('ignores comments written by people', async () => {
-    const github = mockGithub([human(3, '<!-- email-template-workflows -->\nquoted')]);
+    const github = mockGithub([human(3, '<!-- render-static-artifacts -->\nquoted')]);
     await run({ github, context, core: makeCore(), env: envFor(artifactDir()) });
     assert.strictEqual(github.state.created.length, 1);
   });
 
   await test('a keyed run creates its own comment next to the default one', async () => {
-    const github = mockGithub([bot(5, '<!-- email-template-workflows -->\n### Rendered emails')]);
+    const github = mockGithub([bot(5, '<!-- render-static-artifacts -->\n### Rendered files')]);
     await run({ github, context, core: makeCore(), env: envFor(artifactDir(), { COMMENT_KEY: 'marketing' }) });
     assert.strictEqual(github.state.updated.length, 0);
     assert.strictEqual(github.state.created.length, 1);
     const body = github.state.created[0].body;
-    assert.ok(body.startsWith('<!-- email-template-workflows:marketing -->\n### Rendered emails (marketing)\n'));
+    assert.ok(body.startsWith('<!-- render-static-artifacts:marketing -->\n### Rendered files (marketing)\n'));
   });
 
   await test('a keyed run updates only its own comment', async () => {
     const github = mockGithub([
-      bot(1, '<!-- email-template-workflows -->\n### Rendered emails'),
-      bot(2, '<!-- email-template-workflows:marketing -->\n### Rendered emails (marketing)'),
-      bot(3, '<!-- email-template-workflows:marketing-eu -->\n### Rendered emails (marketing-eu)'),
+      bot(1, '<!-- render-static-artifacts -->\n### Rendered files'),
+      bot(2, '<!-- render-static-artifacts:marketing -->\n### Rendered files (marketing)'),
+      bot(3, '<!-- render-static-artifacts:marketing-eu -->\n### Rendered files (marketing-eu)'),
     ]);
     await run({ github, context, core: makeCore(), env: envFor(artifactDir(), { COMMENT_KEY: 'marketing' }) });
     assert.strictEqual(github.state.updated.length, 1);
@@ -143,7 +149,7 @@ const human = (id, body) => ({ id, body, user: { type: 'User' } });
   });
 
   await test('an unkeyed run never adopts a keyed comment through the legacy heading', async () => {
-    const github = mockGithub([bot(2, '<!-- email-template-workflows:marketing -->\n### Rendered emails (marketing)')]);
+    const github = mockGithub([bot(2, '<!-- render-static-artifacts:marketing -->\n### Rendered files (marketing)')]);
     await run({ github, context, core: makeCore(), env: envFor(artifactDir()) });
     assert.strictEqual(github.state.updated.length, 0);
     assert.strictEqual(github.state.created.length, 1);
@@ -156,7 +162,7 @@ const human = (id, body) => ({ id, body, user: { type: 'User' } });
     assert.strictEqual(run.sanitizeKey('welcome_email.v2'), 'welcome_email.v2');
   });
 
-  await test('failed templates are listed', async () => {
+  await test('failed files are listed', async () => {
     const github = mockGithub();
     const dir = artifactDir({ failed: ['src/missing.md'] });
     await run({ github, context, core: makeCore(), env: envFor(dir) });
