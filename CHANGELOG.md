@@ -2,6 +2,12 @@
 
 All notable changes to `LLazyEmail/email-template-workflows` are listed here.
 
+## [2.7.1] - 2026-11-03
+
+### Changed
+
+- Documented the `config` file input in the agent guides (AGENTS.md, agent playbook, llms.txt): config fills defaults and explicit `with:` inputs win.
+
 ## [2.7.0] - 2026-11-01
 
 ### Added
@@ -112,6 +118,7 @@ All notable changes to `LLazyEmail/email-template-workflows` are listed here.
 ### Removed
 - `example-workflow.yml` at the repository root. It posted its own comment on top of the built-in one. Use `examples/` instead.
 
+[2.7.1]: https://github.com/LLazyEmail/email-template-workflows/compare/v2.7.0...v2.7.1
 [2.7.0]: https://github.com/LLazyEmail/email-template-workflows/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/LLazyEmail/email-template-workflows/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/LLazyEmail/email-template-workflows/compare/v2.4.0...v2.5.0
