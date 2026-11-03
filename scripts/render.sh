@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Renders email templates, writes index.html / rendered.txt (and failed.txt) into
+# Renders source files, writes index.html / rendered.txt (and failed.txt) into
 # the artifact directory, and sets the step outputs.
 #
 # Run from the working directory. Configuration comes from the environment (see
@@ -29,9 +29,9 @@ ARTIFACT_DIRECTORY=${ARTIFACT_DIRECTORY:-}
 ARTIFACT_NAME=${ARTIFACT_NAME:-}
 WORKDIR=${WORKDIR:-.}
 FAIL_FAST=${FAIL_FAST:-true}
-SIZE_LIMIT_KB=${SIZE_LIMIT_KB:-102}
+SIZE_LIMIT_KB=${SIZE_LIMIT_KB:-0}
 JOB_SUMMARY=${JOB_SUMMARY:-true}
-PRODUCT_NAME=${PRODUCT_NAME:-emails}
+PRODUCT_NAME=${PRODUCT_NAME:-files}
 COMMENT_HEADING=${COMMENT_HEADING:-}
 FILE_PATTERN=${FILE_PATTERN:-*.html}
 CONFIG=${CONFIG:-}
@@ -140,12 +140,12 @@ explain_failure() {
   echo "----------------------------------------"
   echo "Common next checks:"
   if [ -n "$BUILD_COMMAND" ]; then
-    echo "  - Does the build-command run on its own with EMAIL_TEMPLATE_INPUT and EMAIL_TEMPLATE_OUTPUT set?"
+    echo "  - Does the build-command run on its own with FILE_INPUT and FILE_OUTPUT set?"
   else
     echo "  - Does the script exist in package.json?"
     echo "  - Does the script accept the arguments the action passes (see input-flag and output-flag)?"
   fi
-  echo "  - Did it write a non-empty HTML file at the expected path?"
+  echo "  - Did it write a non-empty file at the expected path?"
   echo "  - Look at the lines above for the tool's own output (tsc, node, mjml, ...)."
   echo ""
 }
@@ -207,14 +207,17 @@ validate_one() {
   return 0
 }
 
-# Render one template. Exposes EMAIL_TEMPLATE_INPUT / EMAIL_TEMPLATE_OUTPUT to
-# build-command, validate-command and to the npm scripts.
+# Render one file. Exposes FILE_INPUT / FILE_OUTPUT (and the legacy
+# EMAIL_TEMPLATE_INPUT / EMAIL_TEMPLATE_OUTPUT) to build-command,
+# validate-command and to the npm scripts.
 render_one() {
   local input=$1 output=$2
   FAIL_WHAT=""
   FAIL_DETAIL=""
   FAILURE_CAUSE=""
   FAILURE_TAIL=""
+  export FILE_INPUT=$input
+  export FILE_OUTPUT=$output
   export EMAIL_TEMPLATE_INPUT=$input
   export EMAIL_TEMPLATE_OUTPUT=$output
   if [ -n "$BUILD_COMMAND" ]; then
@@ -234,7 +237,7 @@ render_one() {
     echo "  script: $PM run $BUILD_SCRIPT ${ARGS[*]}"
     if ! run_captured run_script "$BUILD_SCRIPT" "${ARGS[@]}"; then
       FAIL_WHAT="render failed for $input"
-      FAIL_DETAIL="$PM run $BUILD_SCRIPT exited non-zero while rendering:\n  input:  $input\n  output: $output\n\nThe cause is below (for example a tsc error, a missing template, or a non-zero exit from the node process). Fix the consumer script or its dependencies, then re-run."
+      FAIL_DETAIL="$PM run $BUILD_SCRIPT exited non-zero while rendering:\n  input:  $input\n  output: $output\n\nThe cause is below (for example a tsc error, a missing source, or a non-zero exit from the node process). Fix the consumer script or its dependencies, then re-run."
       return 1
     fi
   fi
@@ -264,7 +267,7 @@ if [ -n "$COMMAND" ]; then
   fi
   echo "running command: $COMMAND"
   if ! run_captured bash -c "$COMMAND"; then
-    explain_failure "command mode failed" "The command exited non-zero:\n  $COMMAND\n\nNo HTML was indexed. The cause is below."
+    explain_failure "command mode failed" "The command exited non-zero:\n  $COMMAND\n\nNo files were indexed. The cause is below."
     exit 1
   fi
   outdir=$ARTIFACT_DIRECTORY
@@ -344,9 +347,9 @@ fi
 
 if [ "${#rendered[@]}" -eq 0 ]; then
   if [ "${#failed[@]}" -gt 0 ]; then
-    echo "::error::All ${#failed[@]} template(s) failed to render."
+    echo "::error::All ${#failed[@]} file(s) failed to render."
   else
-    explain_failure "No templates rendered" "Set command plus artifact-directory, templates, input plus output, or build-command with templates. Nothing was written."
+    explain_failure "No files rendered" "Set command plus artifact-directory, templates, input plus output, or build-command with templates. Nothing was written."
   fi
   exit 1
 fi
@@ -364,7 +367,6 @@ for f in "${rendered[@]}"; do
   sizes+=("$bytes")
   if [ "$SIZE_LIMIT_KB" -gt 0 ] && [ "$bytes" -gt $((SIZE_LIMIT_KB * 1024)) ]; then
     if [ "$PRODUCT_NAME" = "emails" ]; then
-      # Keep the exact title the existing tests assert on.
       echo "::warning file=$WORKDIR/$f,title=Email may be clipped::$f is $(size_kb "$bytes") KB, over the size-limit-kb of $SIZE_LIMIT_KB KB. Gmail clips messages larger than about 102 KB."
     else
       echo "::warning file=$WORKDIR/$f,title=File may be large::$f is $(size_kb "$bytes") KB, over the size-limit-kb of $SIZE_LIMIT_KB KB."
@@ -439,4 +441,4 @@ fi
   echo "failed-count=${#failed[@]}"
 } >> "$OUT"
 
-echo "rendered ${#rendered[@]} template(s) into $outdir (${#failed[@]} failed)"
+echo "rendered ${#rendered[@]} file(s) into $outdir (${#failed[@]} failed)"
