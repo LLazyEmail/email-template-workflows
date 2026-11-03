@@ -14,7 +14,8 @@ Checks:
     from the environment is provided by action.yml
   * every third-party `uses:` is pinned to a full commit SHA
   * every ```yaml block in the docs parses, and every call to this Action in the
-    docs and in examples/ uses only inputs that exist in action.yml, pinned to @v1
+    docs and in examples/ uses only inputs that exist in action.yml, pinned to
+    @v1 or @v3
   * relative links and #anchors in the docs point at files and headings that exist
   * config example files and the loader map only use real input names
 """
@@ -139,6 +140,7 @@ ok(f"{checked} workflow/action references pinned to a SHA")
 # ---------------------------------------------------------------------------
 DOCS = ["README.md", "AGENTS.md", "CONTRIBUTING.md", "llms.txt", "CHANGELOG.md"] + sorted(glob.glob("docs/*.md"))
 ACTION_REF = re.compile(r"^LLazyEmail/email-template-workflows@")
+ALLOWED_TAGS = ("@v1", "@v2", "@v3")
 
 
 def yaml_blocks(path):
@@ -166,8 +168,8 @@ def check_calls(label, tree):
     count = 0
     for call in action_calls(tree):
         count += 1
-        if not call["uses"].endswith("@v1"):
-            error(f"{label}: '{call['uses']}' must be pinned to @v1")
+        if not any(call["uses"].endswith(tag) for tag in ALLOWED_TAGS):
+            error(f"{label}: '{call['uses']}' must be pinned to @v1, @v2 or @v3")
         for key in (call.get("with") or {}):
             if key not in inputs:
                 error(f"{label}: '{key}' is not an input of this action")
