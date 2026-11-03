@@ -7,7 +7,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const MARKER_PREFIX = '<!-- email-template-workflows';
+// v3 marker. Older comments used email-template-workflows; we still adopt those.
+const MARKER_PREFIX = '<!-- render-static-artifacts';
+const LEGACY_MARKER_PREFIX = '<!-- email-template-workflows';
 const MAX_LISTED = 100;
 // Headings written by older versions of this action and of hand-written
 // workflows. A comment with one of them (and no marker) is adopted once.
@@ -46,7 +48,7 @@ function bullets(lines) {
   return shown;
 }
 
-function buildBody({ key, rendered, failed, runUrl, artifactName, artifactUrl, uploaded, productName = 'emails', commentHeading }) {
+function buildBody({ key, rendered, failed, runUrl, artifactName, artifactUrl, uploaded, productName = 'files', commentHeading }) {
   const marker = key ? `${MARKER_PREFIX}:${key} -->` : `${MARKER_PREFIX} -->`;
   const heading = commentHeading || (key ? `### Rendered ${productName} (${key})` : `### Rendered ${productName}`);
   const artifactLine = artifactUrl
@@ -72,9 +74,10 @@ function buildBody({ key, rendered, failed, runUrl, artifactName, artifactUrl, u
 async function run({ github, context, core, env = process.env }) {
   const key = sanitizeKey(env.COMMENT_KEY);
   const marker = key ? `${MARKER_PREFIX}:${key} -->` : `${MARKER_PREFIX} -->`;
+  const legacyMarker = key ? `${LEGACY_MARKER_PREFIX}:${key} -->` : `${LEGACY_MARKER_PREFIX} -->`;
   const artifactDir = env.ARTIFACT_DIR;
   const runUrl = `${env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-  const productName = env.PRODUCT_NAME || 'emails';
+  const productName = env.PRODUCT_NAME || 'files';
   const commentHeading = env.COMMENT_HEADING || '';
 
   const body = buildBody({
@@ -98,8 +101,10 @@ async function run({ github, context, core, env = process.env }) {
       per_page: 100,
     });
     const isBot = (c) => c.user?.type === 'Bot';
-    const hasAnyMarker = (c) => Boolean(c.body?.includes(MARKER_PREFIX));
-    let existing = comments.find((c) => isBot(c) && c.body?.includes(marker));
+    const hasAnyMarker = (c) => Boolean(
+      c.body?.includes(MARKER_PREFIX) || c.body?.includes(LEGACY_MARKER_PREFIX),
+    );
+    let existing = comments.find((c) => isBot(c) && (c.body?.includes(marker) || c.body?.includes(legacyMarker)));
     if (!existing && !key) {
       // Adopt a pre-marker comment, but never one that belongs to a keyed run.
       existing = comments.find(
