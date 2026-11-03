@@ -71,12 +71,12 @@ rel() {
   node -e 'console.log(require("path").relative(process.argv[1],process.argv[2]).split("\\").join("/"))' "$1" "$2"
 }
 
+# HTML-escape $1. Argument form, not stdin: piping into node -e is unreliable
+# across Node versions (the event loop can exit before stdin is read).
+# Entities are built at runtime so the source never contains the literal
+# sequences (avoids tools that unescape them when the file is written).
 esc() {
-  # Synchronous stdin read. The event-based version can exit before 'end'
-  # fires under node -e in a pipeline, leaving names unescaped.
-  # Entities are built at runtime so the source never contains the literal
-  # sequences (avoids tools that unescape them when the file is written).
-  node -e 'const fs=require("fs");const a=String.fromCharCode(38);let s=fs.readFileSync(0,"utf8");process.stdout.write(s.replace(/&/g,a+"amp;").replace(/</g,a+"lt;").replace(/>/g,a+"gt;").replace(/"/g,a+"quot;").replace(/\n$/,""))'
+  node -e 'const a=String.fromCharCode(38);const s=process.argv[1]||"";process.stdout.write(s.replace(/&/g,a+"amp;").replace(/</g,a+"lt;").replace(/>/g,a+"gt;").replace(/"/g,a+"quot;"))' "$1"
 }
 
 trim() {
@@ -385,7 +385,7 @@ index_title="Rendered $PRODUCT_NAME"
   echo '<ul>'
   i=0
   for f in "${rendered[@]}"; do
-    name=$(rel "$outdir" "$f" | esc)
+    name=$(esc "$(rel "$outdir" "$f")")
     echo "<li><a href=\"$name\">$name</a> <small>($(size_kb "${sizes[$i]}") KB)</small></li>"
     i=$((i + 1))
   done
@@ -394,7 +394,7 @@ index_title="Rendered $PRODUCT_NAME"
     echo '<h2>Failed</h2>'
     echo '<ul>'
     for f in "${failed[@]}"; do
-      echo "<li>$(printf '%s' "$f" | esc)</li>"
+      echo "<li>$(esc "$f")</li>"
     done
     echo '</ul>'
   fi
