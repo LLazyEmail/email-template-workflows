@@ -72,9 +72,11 @@ rel() {
 }
 
 esc() {
-  # Build HTML entities at runtime so the source never contains the literal entities
-  # (avoids tools that unescape & etc. when the file is written).
-  node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const a=String.fromCharCode(38);console.log(s.replace(/&/g,a+"amp;").replace(/</g,a+"lt;").replace(/>/g,a+"gt;").replace(/"/g,a+"quot;").replace(/\n$/,""))})'
+  # Synchronous stdin read. The event-based version can exit before 'end'
+  # fires under node -e in a pipeline, leaving names unescaped.
+  # Entities are built at runtime so the source never contains the literal
+  # sequences (avoids tools that unescape them when the file is written).
+  node -e 'const fs=require("fs");const a=String.fromCharCode(38);let s=fs.readFileSync(0,"utf8");process.stdout.write(s.replace(/&/g,a+"amp;").replace(/</g,a+"lt;").replace(/>/g,a+"gt;").replace(/"/g,a+"quot;").replace(/\n$/,""))'
 }
 
 trim() {
