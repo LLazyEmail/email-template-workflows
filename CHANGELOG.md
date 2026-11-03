@@ -2,6 +2,12 @@
 
 All notable changes to `LLazyEmail/email-template-workflows` are listed here.
 
+## [3.1.0] - 2026-11-03
+
+### Removed
+
+- Remove the cross-repo `cascade-bumps` workflow and `CASCADE_TOKEN` docs. Consumers update `LLazyEmail/email-template-workflows` through their own Renovate or Dependabot config; see `docs/keeping-consumers-up-to-date.md`.
+
 ## [3.0.0] - 2026-11-03
 
 ### Changed
@@ -124,6 +130,7 @@ All notable changes to `LLazyEmail/email-template-workflows` are listed here.
 ### Removed
 - `example-workflow.yml` at the repository root. It posted its own comment on top of the built-in one. Use `examples/` instead.
 
+[3.1.0]: https://github.com/LLazyEmail/email-template-workflows/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/LLazyEmail/email-template-workflows/compare/v2.7.1...v3.0.0
 [2.7.1]: https://github.com/LLazyEmail/email-template-workflows/compare/v2.7.0...v2.7.1
 [2.7.0]: https://github.com/LLazyEmail/email-template-workflows/compare/v2.6.0...v2.7.0
