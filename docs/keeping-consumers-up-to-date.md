@@ -39,26 +39,29 @@ snippet below) and optionally add a row to this table in a docs PR.
 
 ## Pin formats the bots understand
 
-Prefer one of these in workflow YAML:
+In workflow YAML, pin the floating major (this repository’s docs checker also
+expects `@v1` / `@v2` / `@v3` in examples):
 
 ```yaml
-# Floating major (tracks latest v3.x once the major tag moves)
 - uses: LLazyEmail/email-template-workflows@v3
-
-# Exact release
-- uses: LLazyEmail/email-template-workflows@v3.0.0
-
-# Immutable digest with a version comment (strongest supply-chain pin)
-- uses: LLazyEmail/email-template-workflows@<full-commit-sha> # v3.0.0
 ```
+
+Other forms Renovate and Dependabot understand (write these in real consumer
+workflows; prefer not to paste exact/`sha` pins into *this* repo’s docs
+snippets):
+
+| Form | Example | Behaviour |
+| --- | --- | --- |
+| Floating major | `…workflows@v3` | Tracks the moving `v3` tag |
+| Exact release | `…workflows@v3.0.0` | Stays on one release until bumped |
+| Digest + comment | `…workflows@<sha> # v3.0.0` | Immutable; bots move the SHA |
 
 Notes:
 
 - Renovate’s `helpers:pinGitHubActionDigestsToSemver` (used by several LLazyEmail
-  repos) may rewrite `@v3` / `@v3.0.0` into a digest + version comment. That is
-  intentional and still updates when a newer `v3.x.y` ships.
-- Dependabot understands the same three forms for `package-ecosystem:
-  github-actions`.
+  repos) may rewrite `@v3` into a digest + version comment. That is intentional
+  and still updates when a newer `v3.x.y` ships.
+- Dependabot’s `package-ecosystem: github-actions` understands the same forms.
 - Do **not** pin `@main` in production consumers. Use a release tag or a digest.
 
 ## How major and minor tags work
