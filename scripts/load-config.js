@@ -28,11 +28,11 @@ const MAP = {
   'validate-script': { env: 'VALIDATE_SCRIPT', def: 'validate-email' },
   'validate-flag': { env: 'VALIDATE_FLAG', def: '--file' },
   'fail-fast': { env: 'FAIL_FAST', def: 'true' },
-  'size-limit-kb': { env: 'SIZE_LIMIT_KB', def: '102' },
+  'size-limit-kb': { env: 'SIZE_LIMIT_KB', def: '0' },
   'artifact-directory': { env: 'ARTIFACT_DIRECTORY', def: '' },
   'artifact-name': { env: 'ARTIFACT_NAME', def: '' },
   'job-summary': { env: 'JOB_SUMMARY', def: 'true' },
-  'product-name': { env: 'PRODUCT_NAME', def: 'emails' },
+  'product-name': { env: 'PRODUCT_NAME', def: 'files' },
   'comment-heading': { env: 'COMMENT_HEADING', def: '' },
 };
 
