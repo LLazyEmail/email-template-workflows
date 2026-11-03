@@ -2,6 +2,12 @@
 
 All notable changes to `LLazyEmail/email-template-workflows` are listed here.
 
+## [3.0.0] - 2026-11-03
+
+### Changed
+
+- Generic public API: action name is now Render Static Artifacts; defaults are product-name=files, size-limit-kb=0, artifact-name=rendered. Builds receive FILE_INPUT and FILE_OUTPUT (EMAIL_TEMPLATE_* still set for compatibility). html-path and html-count remain as aliases of file-path and file-count. Pin @v2 to keep the old defaults.
+
 ## [2.7.1] - 2026-11-03
 
 ### Changed
@@ -118,6 +124,7 @@ All notable changes to `LLazyEmail/email-template-workflows` are listed here.
 ### Removed
 - `example-workflow.yml` at the repository root. It posted its own comment on top of the built-in one. Use `examples/` instead.
 
+[3.0.0]: https://github.com/LLazyEmail/email-template-workflows/compare/v2.7.1...v3.0.0
 [2.7.1]: https://github.com/LLazyEmail/email-template-workflows/compare/v2.7.0...v2.7.1
 [2.7.0]: https://github.com/LLazyEmail/email-template-workflows/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/LLazyEmail/email-template-workflows/compare/v2.5.0...v2.6.0
